@@ -11,6 +11,7 @@ const session    = require('express-session');
 const passport   = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const Database   = require('better-sqlite3');
+const SqliteStore = require('better-sqlite3-session-store')(session);
 const cors       = require('cors');
 const path       = require('path');
 
@@ -123,6 +124,7 @@ app.set('trust proxy', 1);
 app.use(cors({ origin: process.env.BASE_URL, credentials: true }));
 app.use(express.json());
 app.use(session({
+  store: new SqliteStore({ client: db }),
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
