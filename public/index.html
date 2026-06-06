@@ -366,6 +366,30 @@
 <!-- TOAST -->
 <div id="toastWrap"></div>
 
+<!-- MOBILE BOTTOM NAV -->
+<nav class="bottom-nav" id="bottomNav">
+  <button class="bn-item active" onclick="showPage('tasks')" data-page="tasks">
+    <span class="bn-icon">📋</span>
+    <span class="bn-label">Завдання</span>
+  </button>
+  <button class="bn-item" onclick="showPage('inventory')" data-page="inventory">
+    <span class="bn-icon">🎒</span>
+    <span class="bn-label">Інвентар</span>
+  </button>
+  <button class="bn-item" onclick="showPage('friends')" data-page="friends">
+    <span class="bn-icon">👥</span>
+    <span class="bn-label">Друзі</span>
+  </button>
+  <button class="bn-item" onclick="showPage('leaderboard')" data-page="leaderboard">
+    <span class="bn-icon">🏆</span>
+    <span class="bn-label">Рейтинг</span>
+  </button>
+  <button class="bn-item" onclick="showPage('premium')" data-page="premium">
+    <span class="bn-icon">👑</span>
+    <span class="bn-label">Premium</span>
+  </button>
+</nav>
+
 <script src="tq-app.js"></script>
 </body>
 </html>

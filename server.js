@@ -326,6 +326,41 @@ app.post('/api/shop/buy', auth, (req, res) => {
   res.json({ ok: true, newCoins: user.coins - price });
 });
 
+// ── LIQPAY ────────────────────────────────────────────────
+app.post('/api/liqpay/checkout', auth, (req, res) => {
+  const { plan } = req.body;
+  if (!process.env.LIQPAY_PUBLIC_KEY || !process.env.LIQPAY_PRIVATE_KEY) {
+    return res.json({ error: 'no_liqpay' });
+  }
+  const crypto = require('crypto');
+  const prices = { Pro: '4.99', Annual: '39.99' };
+  const price = prices[plan] || '4.99';
+  const params = {
+    version: '3', public_key: process.env.LIQPAY_PUBLIC_KEY,
+    action: 'pay', amount: price, currency: 'USD',
+    description: `TaskQuest Premium ${plan}`,
+    order_id: `tq-${req.user.id}-${Date.now()}`,
+    result_url: process.env.BASE_URL + '/premium-success',
+    server_url: process.env.BASE_URL + '/api/liqpay/callback',
+  };
+  const data = Buffer.from(JSON.stringify(params)).toString('base64');
+  const sign = crypto.createHash('sha1').update(process.env.LIQPAY_PRIVATE_KEY + data + process.env.LIQPAY_PRIVATE_KEY).digest('base64');
+  res.json({ url: `https://www.liqpay.ua/api/3/checkout?data=${data}&signature=${sign}` });
+});
+
+app.post('/api/liqpay/callback', (req, res) => {
+  const crypto = require('crypto');
+  const { data, signature } = req.body;
+  const sign = crypto.createHash('sha1').update(process.env.LIQPAY_PRIVATE_KEY + data + process.env.LIQPAY_PRIVATE_KEY).digest('base64');
+  if (sign !== signature) return res.status(400).send('Bad signature');
+  const payload = JSON.parse(Buffer.from(data, 'base64').toString());
+  if (payload.status === 'success') {
+    const userId = payload.order_id.split('-')[1];
+    db.prepare('UPDATE users SET premium = 1 WHERE id = ?').run(userId);
+  }
+  res.send('OK');
+});
+
 // ── SERVE FRONTEND ────────────────────────────────────────
 app.get('/{*splat}', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

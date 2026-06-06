@@ -498,9 +498,11 @@ function initApp() {
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.bn-item').forEach(n=>n.classList.remove('active'));
   const pg = document.getElementById('page-'+name);
   if (pg) pg.classList.add('active');
   document.querySelectorAll('.nav-item[data-page="'+name+'"]').forEach(n=>n.classList.add('active'));
+  document.querySelectorAll('.bn-item[data-page="'+name+'"]').forEach(n=>n.classList.add('active'));
   // Close sidebar on mobile
   if (window.innerWidth < 780) document.getElementById('sidebar').classList.remove('open');
   const renders = {
@@ -1097,11 +1099,29 @@ function renderPremium() {
     <div class="prem-feat-grid">${feats.map(f=>`<div class="prem-feat-item"><div class="prem-feat-icon">${f.icon}</div><div><div class="prem-feat-title">${f.title[currentLang]||f.title.ua}</div><div class="prem-feat-desc">${f.desc[currentLang]||f.desc.ua}</div></div></div>`).join('')}</div>`;
 }
 
-function selectPlan(plan) {
+async function selectPlan(plan) {
   if(plan==='Free')return;
-  S.premium=true; S.premiumPlan=plan; saveState();
-  toast(`👑 Premium ${plan} активовано!`,'ok','🎉');
-  renderPremium(); renderGenLimit();
+  try {
+    const res = await fetch('/api/liqpay/checkout', {
+      method:'POST', credentials:'include',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({plan})
+    });
+    const data = await res.json();
+    if(data.url) {
+      window.location.href = data.url;
+    } else if(data.error === 'no_liqpay') {
+      // LiqPay не налаштований — тестовий режим
+      S.premium=true; S.premiumPlan=plan;
+      await API.updateUser({coins:S.coins,xp:S.xp,level:S.level,streak:S.streak,premium:1});
+      toast(`👑 Premium ${plan} активовано!`,'ok','🎉');
+      renderPremium(); renderGenLimit();
+    } else {
+      toast('Помилка оплати','err');
+    }
+  } catch(e) {
+    toast('Помилка з\'єднання','err');
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
