@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="uk" data-lang="ua">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TaskQuest 🌿</title>
+<link rel="stylesheet" href="tq-styles.css">
+</head>
+<body>
+
+<!-- ══ AUTH SCREEN ══ -->
+<div id="authScreen" class="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">🌿 Task<span>Quest</span></div>
+    <div class="auth-tagline">Виконуй завдання — живи яскравіше</div>
+    <div style="text-align:center;margin-bottom:20px">
+      <a href="/auth/google" class="btn-auth-google" style="display:inline-flex;align-items:center;gap:10px;padding:13px 28px;border-radius:10px;border:1px solid #30363d;background:#161b22;color:#e6edf3;font-size:15px;font-weight:700;text-decoration:none;transition:all .2s">
+        <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        Увійти через Google
+      </a>
+    </div>
+    <div style="text-align:center;color:#7d8590;font-size:13px;margin-bottom:16px">— або —</div>
+    <!-- Register -->
+    <div id="authRegister">
+      <div class="auth-tabs">
+        <button class="auth-tab active" onclick="switchAuthTab('register')">Реєстрація</button>
+        <button class="auth-tab" onclick="switchAuthTab('login')">Увійти</button>
+      </div>
+      <div class="auth-field">
+        <label>Ім'я</label>
+        <input id="regName" type="text" placeholder="Твоє ім'я" maxlength="24">
+      </div>
+      <div class="auth-field">
+        <label>Email</label>
+        <input id="regEmail" type="email" placeholder="you@email.com">
+      </div>
+      <div class="auth-field">
+        <label data-i18n="auth.password">Пароль</label>
+        <input id="regPass" type="password" placeholder="••••••••">
+      </div>
+      <div class="auth-avatar-pick">
+        <div class="auth-avatar-label" data-i18n="auth.avatar">Обери аватар</div>
+        <div class="avatar-grid" id="avatarGrid"></div>
+      </div>
+      <button class="btn-auth" onclick="doRegister()" data-i18n="auth.createBtn">Створити акаунт 🚀</button>
+      <div class="auth-divider" data-i18n="auth.or">або</div>
+      <button class="btn-auth-google" onclick="doGoogleLogin()">
+        <span>G</span> <span data-i18n="auth.google">Увійти через Google</span>
+      </button>
+    </div>
+
+    <!-- Login -->
+    <div id="authLogin" style="display:none">
+      <div class="auth-tabs">
+        <button class="auth-tab" onclick="switchAuthTab('register')" data-i18n="auth.register">Реєстрація</button>
+        <button class="auth-tab active" onclick="switchAuthTab('login')" data-i18n="auth.login">Увійти</button>
+      </div>
+      <div class="auth-field">
+        <label data-i18n="auth.email">Email</label>
+        <input id="loginEmail" type="email" placeholder="you@email.com">
+      </div>
+      <div class="auth-field">
+        <label data-i18n="auth.password">Пароль</label>
+        <input id="loginPass" type="password" placeholder="••••••••">
+      </div>
+      <button class="btn-auth" onclick="doLogin()" data-i18n="auth.loginBtn">Увійти</button>
+      <div class="auth-divider" data-i18n="auth.or">або</div>
+      <button class="btn-auth-google" onclick="doGoogleLogin()">
+        <span>G</span> <span data-i18n="auth.google">Увійти через Google</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP ══ -->
+<div id="appRoot" class="app" style="display:none">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="hdr-left">
+      <button class="burger" id="burgerBtn" onclick="toggleSidebar()">☰</button>
+      <div class="logo">🌿 Task<span>Quest</span></div>
+    </div>
+    <div class="hdr-center" id="hdrSearch">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" class="search-input" data-i18n-ph="search.ph" placeholder="Пошук завдань..." oninput="searchTasks(this.value)">
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div class="hdr-stat coins">🪙 <span id="hdrCoins">0</span></div>
+      <div class="hdr-stat xp">⚡ <span id="hdrXP">0</span></div>
+      <div class="hdr-lvl" onclick="showPage('stats')">Lv.<span id="hdrLvl">1</span></div>
+      <!-- Lang switcher -->
+      <div class="lang-switcher">
+        <button class="lang-btn active" onclick="setLang('ua')">🇺🇦</button>
+        <button class="lang-btn" onclick="setLang('en')">🇬🇧</button>
+        <button class="lang-btn" onclick="setLang('fr')">🇫🇷</button>
+      </div>
+      <div class="hdr-avatar" id="hdrAvatar" onclick="showPage('settings')"></div>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- SIDEBAR -->
+    <nav class="sidebar" id="sidebar">
+      <div class="nav-group-label" data-i18n="nav.main">Головне</div>
+      <div class="nav-item active" onclick="showPage('tasks')" data-page="tasks">
+        <span class="nav-icon">📋</span><span data-i18n="nav.tasks">Завдання</span>
+      </div>
+      <div class="nav-item" onclick="showPage('inventory')" data-page="inventory">
+        <span class="nav-icon">🎒</span><span data-i18n="nav.inventory">Інвентар</span>
+      </div>
+      <div class="nav-item" onclick="showPage('shop')" data-page="shop">
+        <span class="nav-icon">🏪</span><span data-i18n="nav.shop">Магазин</span>
+        <span class="nav-badge" id="shopBadge"></span>
+      </div>
+      <div class="nav-group-label" data-i18n="nav.social">Соціальне</div>
+      <div class="nav-item" onclick="showPage('friends')" data-page="friends">
+        <span class="nav-icon">👥</span><span data-i18n="nav.friends">Друзі</span>
+        <span class="nav-badge" id="friendsBadge"></span>
+      </div>
+      <div class="nav-item" onclick="showPage('leaderboard')" data-page="leaderboard">
+        <span class="nav-icon">🏆</span><span data-i18n="nav.leaderboard">Рейтинг</span>
+      </div>
+      <div class="nav-item" onclick="showPage('stats')" data-page="stats">
+        <span class="nav-icon">📊</span><span data-i18n="nav.stats">Статистика</span>
+      </div>
+      <div class="nav-group-label" data-i18n="nav.other">Інше</div>
+      <div class="nav-item" onclick="showPage('premium')" data-page="premium">
+        <span class="nav-icon">👑</span><span data-i18n="nav.premium">Premium</span>
+        <span class="nav-crown">✨</span>
+      </div>
+      <div class="nav-item" onclick="showPage('settings')" data-page="settings">
+        <span class="nav-icon">⚙️</span><span data-i18n="nav.settings">Налаштування</span>
+      </div>
+      <div class="sidebar-footer">
+        <button class="btn-logout" onclick="doLogout()" data-i18n="nav.logout">Вийти</button>
+      </div>
+    </nav>
+
+    <!-- CONTENT -->
+    <main class="content" id="mainContent">
+
+      <!-- PAGE: TASKS -->
+      <div class="page active" id="page-tasks">
+        <div class="page-header">
+          <div>
+            <div class="page-title" data-i18n="tasks.title">📋 Завдання</div>
+            <div class="page-sub" data-i18n="tasks.sub">Виконуй — отримуй нагороди</div>
+          </div>
+          <div class="daily-reset" id="dailyReset"></div>
+        </div>
+
+        <!-- Generator -->
+        <div class="gen-card">
+          <div class="gen-info">
+            <div class="gen-title" data-i18n="tasks.genTitle">🎲 Згенерувати нове завдання</div>
+            <div class="gen-limit" id="genLimit"></div>
+          </div>
+          <div class="gen-controls">
+            <select class="sel" id="genType">
+              <option value="any" data-i18n="tasks.anyType">🎲 Будь-який</option>
+              <option value="home" data-i18n="tasks.home">🏠 Дім</option>
+              <option value="outdoor" data-i18n="tasks.outdoor">🌳 Вулиця</option>
+            </select>
+            <select class="sel" id="genDiff">
+              <option value="any" data-i18n="tasks.anyDiff">✨ Будь-яка</option>
+              <option value="easy">🟢 <span data-i18n="diff.easy">Легко</span></option>
+              <option value="medium">🟡 <span data-i18n="diff.medium">Середньо</span></option>
+              <option value="hard">🔴 <span data-i18n="diff.hard">Важко</span></option>
+              <option value="legendary">👑 <span data-i18n="diff.legendary">Легендарно</span></option>
+            </select>
+            <button class="btn-gen" onclick="generateTask()" id="genBtn">
+              🎲 <span data-i18n="tasks.generate">Генерувати</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Active buffs strip -->
+        <div class="buffs-strip" id="buffsStrip"></div>
+
+        <!-- Filters -->
+        <div class="filters" id="taskFilters">
+          <button class="filter active" onclick="filterTasks('all',this)" data-i18n="filter.all">Всі</button>
+          <button class="filter" onclick="filterTasks('home',this)">🏠 <span data-i18n="tasks.home">Дім</span></button>
+          <button class="filter" onclick="filterTasks('outdoor',this)">🌳 <span data-i18n="tasks.outdoor">Вулиця</span></button>
+          <button class="filter" onclick="filterTasks('easy',this)">🟢 <span data-i18n="diff.easy">Легко</span></button>
+          <button class="filter" onclick="filterTasks('medium',this)">🟡 <span data-i18n="diff.medium">Середньо</span></button>
+          <button class="filter" onclick="filterTasks('hard',this)">🔴 <span data-i18n="diff.hard">Важко</span></button>
+          <button class="filter" onclick="filterTasks('legendary',this)">👑 <span data-i18n="diff.legendary">Легендарно</span></button>
+        </div>
+
+        <div class="tasks-grid" id="tasksGrid"></div>
+      </div>
+
+      <!-- PAGE: INVENTORY -->
+      <div class="page" id="page-inventory">
+        <div class="page-title" data-i18n="inv.title">🎒 Інвентар</div>
+        <div class="page-sub" id="invCapacity"></div>
+        <div class="inv-grid" id="invGrid"></div>
+      </div>
+
+      <!-- PAGE: SHOP -->
+      <div class="page" id="page-shop">
+        <div class="page-header">
+          <div>
+            <div class="page-title" data-i18n="shop.title">🏪 Магазин</div>
+            <div class="page-sub" data-i18n="shop.sub">Запаси обмежені — оновлення щодня</div>
+          </div>
+          <div class="shop-reset" id="shopReset"></div>
+        </div>
+        <div class="shop-grid" id="shopGrid"></div>
+      </div>
+
+      <!-- PAGE: FRIENDS -->
+      <div class="page" id="page-friends">
+        <div class="page-title" data-i18n="friends.title">👥 Друзі</div>
+        <div class="friends-layout">
+          <div class="friends-panel">
+            <h3 data-i18n="friends.myFriends">Мої друзі</h3>
+            <div class="add-friend">
+              <input class="input-f" id="friendInput" data-i18n-ph="friends.codePh" placeholder="Код: TQ-0000">
+              <button class="btn-add" onclick="addFriend()" data-i18n="friends.add">Додати</button>
+            </div>
+            <div class="my-code-box">
+              <span data-i18n="friends.myCode">Твій код:</span>
+              <strong id="myCodeDisplay"></strong>
+              <button class="btn-copy" onclick="copyCode()" data-i18n="friends.copy">📋 Копіювати</button>
+            </div>
+            <div id="friendsList"></div>
+          </div>
+          <div class="trade-panel">
+            <h3 data-i18n="trade.title">🔄 Обмін</h3>
+            <div class="trade-ui">
+              <div class="trade-side">
+                <div class="trade-label" data-i18n="trade.give">Ти даєш</div>
+                <select class="sel" id="tradeGive" onchange="previewTrade()"></select>
+                <div class="trade-preview" id="previewGive"></div>
+              </div>
+              <div class="trade-arrow">⇄</div>
+              <div class="trade-side">
+                <div class="trade-label" data-i18n="trade.get">Ти отримуєш</div>
+                <select class="sel" id="tradeFriendItem" onchange="previewTrade()"></select>
+                <div class="trade-preview" id="previewGet"></div>
+              </div>
+            </div>
+            <select class="sel" id="tradeWithFriend" style="width:100%;margin-bottom:10px" onchange="loadFriendInv()"></select>
+            <button class="btn-trade-confirm" onclick="executeTrade()" data-i18n="trade.confirm">✨ Підтвердити обмін</button>
+            <div id="tradeLog"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE: LEADERBOARD -->
+      <div class="page" id="page-leaderboard">
+        <div class="page-title" data-i18n="lb.title">🏆 Рейтинг</div>
+        <div class="page-sub" data-i18n="lb.sub">Тільки реальні гравці з твого кола</div>
+        <div id="lbContent"></div>
+      </div>
+
+      <!-- PAGE: STATS -->
+      <div class="page" id="page-stats">
+        <div class="page-title" data-i18n="stats.title">📊 Статистика</div>
+        <div class="stats-grid" id="statsGrid"></div>
+        <div class="section-title" data-i18n="stats.history">📜 Історія</div>
+        <div id="historyList"></div>
+      </div>
+
+      <!-- PAGE: PREMIUM -->
+      <div class="page" id="page-premium">
+        <div class="premium-hero">
+          <div class="premium-crown">👑</div>
+          <div class="premium-title" data-i18n="premium.title">TaskQuest Premium</div>
+          <div class="premium-sub" data-i18n="premium.sub">Розблокуй повний потенціал</div>
+        </div>
+        <div class="plans-grid" id="plansGrid"></div>
+        <div class="premium-features" id="premiumFeatures"></div>
+        <div class="premium-note" data-i18n="premium.note">
+          💳 Безпечна оплата. Скасувати можна в будь-який момент.
+        </div>
+      </div>
+
+      <!-- PAGE: SETTINGS -->
+      <div class="page" id="page-settings">
+        <div class="page-title" data-i18n="settings.title">⚙️ Налаштування</div>
+        <div class="settings-layout" id="settingsContent"></div>
+      </div>
+
+    </main>
+
+    <!-- RIGHT SIDEBAR -->
+    <aside class="right-sidebar" id="rightSidebar">
+      <div class="widget">
+        <div class="widget-title" data-i18n="widget.profile">Профіль</div>
+        <div class="profile-widget" id="profileWidget"></div>
+      </div>
+      <div class="widget">
+        <div class="widget-title" data-i18n="widget.streak">Серія 🔥</div>
+        <div class="streak-widget" id="streakWidget"></div>
+      </div>
+      <div class="widget">
+        <div class="widget-title" data-i18n="widget.buffs">Активні бафи</div>
+        <div id="buffsList"></div>
+      </div>
+      <div class="widget">
+        <div class="widget-title" data-i18n="widget.daily">Щоденне завдання</div>
+        <div id="dailyWidget"></div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div class="overlay" id="confirmOverlay">
+  <div class="modal">
+    <button class="modal-x" onclick="closeModal('confirmOverlay')">✕</button>
+    <div class="modal-title" data-i18n="confirm.title">✅ Підтвердження</div>
+    <div class="modal-task-display" id="confirmDisplay"></div>
+    <div class="photo-drop" id="photoDrop" onclick="fakePhoto()">
+      <div id="photoContent">
+        <div style="font-size:40px">📸</div>
+        <div data-i18n="confirm.photoHint">Натисни щоб прикріпити фото</div>
+      </div>
+    </div>
+    <textarea class="modal-textarea" id="confirmNote" data-i18n-ph="confirm.notePh" placeholder="Коментар..."></textarea>
+    <button class="btn-confirm" onclick="finalConfirm()" data-i18n="confirm.btn">🎉 Підтвердити!</button>
+  </div>
+</div>
+
+<div class="overlay" id="rewardOverlay">
+  <div class="modal reward-modal">
+    <div class="reward-emoji" id="rewardEmoji">🎉</div>
+    <div class="reward-title" id="rewardTitle"></div>
+    <div class="reward-task-name" id="rewardTaskName"></div>
+    <div class="reward-row" id="rewardRow"></div>
+    <div class="item-drop" id="itemDrop" style="display:none"></div>
+    <button class="btn-confirm" onclick="closeModal('rewardOverlay')" data-i18n="reward.collect">🌟 Забрати!</button>
+  </div>
+</div>
+
+<div class="overlay" id="levelupOverlay">
+  <div class="modal levelup-modal">
+    <div class="lu-glow">🌟</div>
+    <div class="lu-label" data-i18n="lu.label">НОВИЙ РІВЕНЬ!</div>
+    <div class="lu-num" id="luNum">2</div>
+    <div class="lu-title" id="luTitle"></div>
+    <div class="lu-perks" id="luPerks"></div>
+    <button class="btn-confirm" onclick="closeModal('levelupOverlay')" data-i18n="lu.btn">🚀 Вперед!</button>
+  </div>
+</div>
+
+<div class="overlay" id="useItemOverlay">
+  <div class="modal" style="text-align:center">
+    <button class="modal-x" onclick="closeModal('useItemOverlay')">✕</button>
+    <div style="font-size:64px;margin-bottom:12px" id="useItemIcon"></div>
+    <div class="modal-title" id="useItemName"></div>
+    <div style="color:var(--sub);margin-bottom:20px" id="useItemDesc"></div>
+    <div class="item-effect-box" id="useItemEffect"></div>
+    <button class="btn-confirm" onclick="confirmUse()" style="margin-top:16px" data-i18n="item.useBtn">✨ Використати</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toastWrap"></div>
+
+<script src="tq-app.js"></script>
+</body>
+</html>
