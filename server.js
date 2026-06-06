@@ -1,4 +1,11 @@
+process.on('uncaughtException', (err) => { console.error('UNCAUGHT:', err); process.exit(1); });
+process.on('unhandledRejection', (err) => { console.error('UNHANDLED:', err); process.exit(1); });
+
 require('dotenv').config();
+console.log('Starting TaskQuest...');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('PORT:', process.env.PORT);
+
 const express    = require('express');
 const session    = require('express-session');
 const passport   = require('passport');
@@ -7,8 +14,11 @@ const Database   = require('better-sqlite3');
 const cors       = require('cors');
 const path       = require('path');
 
+console.log('Modules loaded, opening DB...');
 const app = express();
-const db  = new Database('taskquest.db');
+const dbPath = process.env.NODE_ENV === 'production' ? '/app/taskquest.db' : 'taskquest.db';
+const db  = new Database(dbPath);
+console.log('DB opened at:', dbPath);
 
 // ── DB SETUP ──────────────────────────────────────────────
 db.exec(`
