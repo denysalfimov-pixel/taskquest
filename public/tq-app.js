@@ -1102,22 +1102,29 @@ function renderPremium() {
 async function selectPlan(plan) {
   if(plan==='Free')return;
   try {
-    const res = await fetch('/api/liqpay/checkout', {
+    const res = await fetch('/api/wayforpay/checkout', {
       method:'POST', credentials:'include',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({plan})
     });
     const data = await res.json();
-    if(data.url) {
-      window.location.href = data.url;
-    } else if(data.error === 'no_liqpay') {
-      // LiqPay не налаштований — тестовий режим
+    if(data.error === 'no_wfp') {
+      // WayForPay не налаштований — тестовий режим
       S.premium=true; S.premiumPlan=plan;
       await API.updateUser({coins:S.coins,xp:S.xp,level:S.level,streak:S.streak,premium:1});
       toast(`👑 Premium ${plan} активовано!`,'ok','🎉');
-      renderPremium(); renderGenLimit();
-    } else {
-      toast('Помилка оплати','err');
+      renderPremium(); renderGenLimit(); return;
+    }
+    if(data.url && data.form) {
+      // Створюємо форму і відправляємо на WayForPay
+      const form = document.createElement('form');
+      form.method = 'POST'; form.action = data.url;
+      Object.entries(data.form).forEach(([k,v]) => {
+        const inp = document.createElement('input');
+        inp.type='hidden'; inp.name=k; inp.value=v;
+        form.appendChild(inp);
+      });
+      document.body.appendChild(form); form.submit();
     }
   } catch(e) {
     toast('Помилка з\'єднання','err');

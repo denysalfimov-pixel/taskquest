@@ -326,39 +326,67 @@ app.post('/api/shop/buy', auth, (req, res) => {
   res.json({ ok: true, newCoins: user.coins - price });
 });
 
-// ── LIQPAY ────────────────────────────────────────────────
-app.post('/api/liqpay/checkout', auth, (req, res) => {
+// ── WAYFORPAY ─────────────────────────────────────────────
+const crypto = require('crypto');
+const WFP_MERCHANT = process.env.WFP_MERCHANT_LOGIN || '';
+const WFP_SECRET   = process.env.WFP_SECRET_KEY || '';
+
+function wfpSign(params) {
+  const str = params.join(';');
+  return crypto.createHmac('md5', WFP_SECRET).update(str).digest('hex');
+}
+
+app.post('/api/wayforpay/checkout', auth, (req, res) => {
+  if (!WFP_MERCHANT || !WFP_SECRET) return res.json({ error: 'no_wfp' });
   const { plan } = req.body;
-  if (!process.env.LIQPAY_PUBLIC_KEY || !process.env.LIQPAY_PRIVATE_KEY) {
-    return res.json({ error: 'no_liqpay' });
-  }
-  const crypto = require('crypto');
-  const prices = { Pro: '4.99', Annual: '39.99' };
-  const price = prices[plan] || '4.99';
-  const params = {
-    version: '3', public_key: process.env.LIQPAY_PUBLIC_KEY,
-    action: 'pay', amount: price, currency: 'USD',
-    description: `TaskQuest Premium ${plan}`,
-    order_id: `tq-${req.user.id}-${Date.now()}`,
-    result_url: process.env.BASE_URL + '/premium-success',
-    server_url: process.env.BASE_URL + '/api/liqpay/callback',
-  };
-  const data = Buffer.from(JSON.stringify(params)).toString('base64');
-  const sign = crypto.createHash('sha1').update(process.env.LIQPAY_PRIVATE_KEY + data + process.env.LIQPAY_PRIVATE_KEY).digest('base64');
-  res.json({ url: `https://www.liqpay.ua/api/3/checkout?data=${data}&signature=${sign}` });
+  const prices = { Pro: '199', Annual: '1599' }; // UAH
+  const amount = prices[plan] || '199';
+  const orderId = `TQ-${req.user.id}-${Date.now()}`;
+  const orderDate = Math.floor(Date.now() / 1000);
+  const productName = `TaskQuest Premium ${plan}`;
+  const returnUrl = process.env.BASE_URL + '/?premium=success';
+  const serviceUrl = process.env.BASE_URL + '/api/wayforpay/callback';
+
+  const signString = [
+    WFP_MERCHANT, returnUrl, orderId, orderDate,
+    amount, 'UAH', productName, '1', amount
+  ];
+  const signature = wfpSign(signString);
+
+  res.json({
+    url: 'https://secure.wayforpay.com/pay',
+    form: {
+      merchantAccount: WFP_MERCHANT,
+      merchantDomainName: 'taskquest-production-bb72.up.railway.app',
+      orderReference: orderId,
+      orderDate,
+      amount,
+      currency: 'UAH',
+      productName,
+      productCount: '1',
+      productPrice: amount,
+      returnUrl,
+      serviceUrl,
+      merchantSignature: signature,
+    }
+  });
 });
 
-app.post('/api/liqpay/callback', (req, res) => {
-  const crypto = require('crypto');
-  const { data, signature } = req.body;
-  const sign = crypto.createHash('sha1').update(process.env.LIQPAY_PRIVATE_KEY + data + process.env.LIQPAY_PRIVATE_KEY).digest('base64');
-  if (sign !== signature) return res.status(400).send('Bad signature');
-  const payload = JSON.parse(Buffer.from(data, 'base64').toString());
-  if (payload.status === 'success') {
-    const userId = payload.order_id.split('-')[1];
+app.post('/api/wayforpay/callback', express.urlencoded({ extended: true }), (req, res) => {
+  const b = req.body;
+  const signStr = [
+    b.merchantAccount, b.orderReference, b.amount, b.currency,
+    b.authCode, b.cardPan, b.transactionStatus, b.reasonCode
+  ].join(';');
+  const sign = crypto.createHmac('md5', WFP_SECRET).update(signStr).digest('hex');
+  if (sign !== b.merchantSignature) return res.status(400).send('Bad sign');
+  if (b.transactionStatus === 'Approved') {
+    const userId = b.orderReference.split('-')[1];
     db.prepare('UPDATE users SET premium = 1 WHERE id = ?').run(userId);
   }
-  res.send('OK');
+  const responseSign = crypto.createHmac('md5', WFP_SECRET)
+    .update([b.orderReference, 'accept'].join(';')).digest('hex');
+  res.json({ orderReference: b.orderReference, status: 'accept', time: Math.floor(Date.now()/1000), signature: responseSign });
 });
 
 // ── SERVE FRONTEND ────────────────────────────────────────
