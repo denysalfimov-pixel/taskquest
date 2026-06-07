@@ -344,11 +344,13 @@ app.post('/api/wayforpay/checkout', auth, (req, res) => {
   const orderId = `TQ-${req.user.id}-${Date.now()}`;
   const orderDate = Math.floor(Date.now() / 1000);
   const productName = `TaskQuest Premium ${plan}`;
+  const domain = 'taskquest-production-bb72.up.railway.app';
   const returnUrl = process.env.BASE_URL + '/?premium=success';
   const serviceUrl = process.env.BASE_URL + '/api/wayforpay/callback';
 
+  // WayForPay signature: merchantAccount;merchantDomainName;orderReference;orderDate;amount;currency;productName;productCount;productPrice
   const signString = [
-    WFP_MERCHANT, returnUrl, orderId, orderDate,
+    WFP_MERCHANT, domain, orderId, orderDate,
     amount, 'UAH', productName, '1', amount
   ];
   const signature = wfpSign(signString);
@@ -357,14 +359,14 @@ app.post('/api/wayforpay/checkout', auth, (req, res) => {
     url: 'https://secure.wayforpay.com/pay',
     form: {
       merchantAccount: WFP_MERCHANT,
-      merchantDomainName: 'taskquest-production-bb72.up.railway.app',
+      merchantDomainName: domain,
       orderReference: orderId,
-      orderDate,
-      amount,
+      orderDate: String(orderDate),
+      amount: String(amount),
       currency: 'UAH',
       productName,
       productCount: '1',
-      productPrice: amount,
+      productPrice: String(amount),
       returnUrl,
       serviceUrl,
       merchantSignature: signature,
