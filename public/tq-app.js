@@ -367,6 +367,7 @@ let S = {
   dailyGenerationsDate: '',
   shopStock: {},     // itemId → count (resets daily)
   shopStockDate: '',
+  recentTaskKeys: [], // для уникнення повторів — зберігає ключі останніх 30 завдань
 };
 
 const SAVE_KEY = 'tq_save_v2';
@@ -510,6 +511,7 @@ function showPage(name) {
     shop: renderShop, friends: renderFriends,
     leaderboard: renderLeaderboard, stats: renderStats,
     premium: renderPremium, settings: renderSettings,
+    referral: renderReferral,
   };
   if (renders[name]) renders[name]();
 }
@@ -549,13 +551,21 @@ function generateTask() {
   const diffs = ['easy','medium','hard','legendary'];
   const diff  = diffV==='any' ? diffs[Math.floor(Math.random()*diffs.length)] : diffV;
   const pool  = TASK_TEMPLATES[type][diff];
-  // Avoid repeating last 3
-  const recent = S.tasks.slice(0,3).map(x=>x.title);
+  // Уникаємо повторів — перевіряємо останні 30 згенерованих
+  if (!S.recentTaskKeys) S.recentTaskKeys = [];
   let tpl;
-  for (let i=0;i<10;i++) {
+  let bestTpl = null;
+  for (let i=0;i<20;i++) {
     tpl = randFrom(pool);
-    if (!recent.includes(tpl.t[currentLang]||tpl.t.ua)) break;
+    const key = `${type}-${diff}-${tpl.t.ua}`;
+    if (!S.recentTaskKeys.includes(key)) { bestTpl = tpl; break; }
+    if (!bestTpl) bestTpl = tpl; // запасний варіант
   }
+  tpl = bestTpl;
+  // Зберігаємо ключ, не більше 30
+  const taskKey = `${type}-${diff}-${tpl.t.ua}`;
+  S.recentTaskKeys.unshift(taskKey);
+  if (S.recentTaskKeys.length > 30) S.recentTaskKeys = S.recentTaskKeys.slice(0, 30);
   const task = makeTask(tpl, type, diff);
   S.tasks.unshift(task);
   S.dailyGenerations++;
@@ -1099,6 +1109,85 @@ function renderPremium() {
     <div class="prem-feat-grid">${feats.map(f=>`<div class="prem-feat-item"><div class="prem-feat-icon">${f.icon}</div><div><div class="prem-feat-title">${f.title[currentLang]||f.title.ua}</div><div class="prem-feat-desc">${f.desc[currentLang]||f.desc.ua}</div></div></div>`).join('')}</div>`;
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  REFERRAL
+// ═══════════════════════════════════════════════════════════════
+function renderReferral() {
+  const el = document.getElementById('referralContent'); if(!el) return;
+  const code = S.user?.code || '';
+  const refUrl = `${window.location.origin}/?ref=${code}`;
+  const refCount = S.user?.refCount || 0;
+  const earned = refCount * 100;
+  el.innerHTML = `
+    <div style="display:grid;gap:16px;max-width:600px">
+      <!-- Як це працює -->
+      <div style="background:linear-gradient(135deg,var(--bg3),rgba(63,185,80,.08));border:1px solid rgba(63,185,80,.25);border-radius:var(--r2);padding:24px">
+        <div style="font-size:18px;font-weight:800;margin-bottom:16px">🎁 Як це працює</div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;gap:12px;font-size:14px">
+            <div style="width:32px;height:32px;border-radius:50%;background:var(--green);color:#000;display:flex;align-items:center;justify-content:center;font-weight:900;flex-shrink:0">1</div>
+            <span>Поділись своїм посиланням з другом</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;font-size:14px">
+            <div style="width:32px;height:32px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;flex-shrink:0">2</div>
+            <span>Друг реєструється через твоє посилання</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;font-size:14px">
+            <div style="width:32px;height:32px;border-radius:50%;background:var(--gold);color:#000;display:flex;align-items:center;justify-content:center;font-weight:900;flex-shrink:0">3</div>
+            <span><b>Ти отримуєш 🪙 100 монет</b>, друг отримує 🪙 50 монет</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Твоє посилання -->
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:20px">
+        <div style="font-size:15px;font-weight:700;margin-bottom:10px">🔗 Твоє реферальне посилання</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input readonly style="flex:1;background:var(--bg3);font-size:12px" value="${refUrl}" id="refUrlInput">
+          <button onclick="copyRefLink()" style="padding:9px 16px;border-radius:var(--r);background:var(--green);color:#000;font-weight:800;font-size:13px;white-space:nowrap">📋 Копіювати</button>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="shareRef('telegram')" style="padding:8px 14px;border-radius:var(--r);background:#0088cc;color:#fff;font-size:13px;font-weight:700">✈️ Telegram</button>
+          <button onclick="shareRef('viber')" style="padding:8px 14px;border-radius:var(--r);background:#7360f2;color:#fff;font-size:13px;font-weight:700">📱 Viber</button>
+          <button onclick="shareRef('whatsapp')" style="padding:8px 14px;border-radius:var(--r);background:#25d366;color:#fff;font-size:13px;font-weight:700">💬 WhatsApp</button>
+        </div>
+      </div>
+
+      <!-- Статистика -->
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:20px">
+        <div style="font-size:15px;font-weight:700;margin-bottom:14px">📊 Твоя статистика</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div style="background:var(--bg3);border-radius:var(--r);padding:14px;text-align:center">
+            <div style="font-size:28px;font-weight:900;color:var(--blue)">${refCount}</div>
+            <div style="font-size:12px;color:var(--sub)">Запрошено друзів</div>
+          </div>
+          <div style="background:var(--bg3);border-radius:var(--r);padding:14px;text-align:center">
+            <div style="font-size:28px;font-weight:900;color:var(--gold)">🪙 ${earned}</div>
+            <div style="font-size:12px;color:var(--sub)">Зароблено монет</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function copyRefLink() {
+  const input = document.getElementById('refUrlInput');
+  if(navigator.clipboard) { navigator.clipboard.writeText(input.value).then(()=>toast('Посилання скопійовано!','ok','📋')); }
+  else { input.select(); document.execCommand('copy'); toast('Скопійовано!','ok','📋'); }
+}
+
+function shareRef(platform) {
+  const code = S.user?.code || '';
+  const url = encodeURIComponent(`${window.location.origin}/?ref=${code}`);
+  const text = encodeURIComponent('Спробуй TaskQuest — виконуй завдання та отримуй нагороди! 🌿');
+  const links = {
+    telegram: `https://t.me/share/url?url=${url}&text=${text}`,
+    viber: `viber://forward?text=${text}%20${url}`,
+    whatsapp: `https://wa.me/?text=${text}%20${url}`,
+  };
+  window.open(links[platform], '_blank');
+}
+
 async function selectPlan(plan) {
   if(plan==='Free')return;
   try {
@@ -1388,10 +1477,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         coins: h.coins, xp: h.xp, item: h.item_name, date: h.created_at,
       }));
 
+      S.user.refCount = data.user.refCount || 0;
       checkDailyReset();
       document.getElementById('authScreen').style.display = 'none';
       document.getElementById('appRoot').style.display = '';
       initApp();
+      // Перевіряємо ?premium=success
+      if (new URLSearchParams(window.location.search).get('premium') === 'success') {
+        S.premium = true;
+        await API.updateUser({coins:S.coins,xp:S.xp,level:S.level,streak:S.streak,premium:1});
+        toast('👑 Premium активовано! Дякуємо!','ok','🎉');
+        history.replaceState(null,'','/');
+      }
+      // Показуємо бонус якщо прийшли через реферал (перша сесія)
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('ref')) history.replaceState(null,'','/');
     } else {
       // Немає сесії — показуємо екран входу
       showAuthScreen();
@@ -1407,7 +1507,7 @@ function showAuthScreen() {
     <div class="auth-logo">🌿 Task<span>Quest</span></div>
     <div class="auth-tagline">Виконуй завдання — живи яскравіше</div>
     <div style="text-align:center;margin:24px 0">
-      <a href="/auth/google" style="display:inline-flex;align-items:center;gap:12px;padding:14px 32px;border-radius:10px;border:1px solid #30363d;background:#161b22;color:#e6edf3;font-size:16px;font-weight:700;text-decoration:none">
+      <a href="/auth/google${new URLSearchParams(window.location.search).get('ref') ? '?ref='+new URLSearchParams(window.location.search).get('ref') : ''}" style="display:inline-flex;align-items:center;gap:12px;padding:14px 32px;border-radius:10px;border:1px solid #30363d;background:#161b22;color:#e6edf3;font-size:16px;font-weight:700;text-decoration:none">
         <svg width="22" height="22" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
         Увійти через Google
       </a>

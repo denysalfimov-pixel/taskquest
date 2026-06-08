@@ -129,6 +129,10 @@
         <span class="nav-icon">📊</span><span data-i18n="nav.stats">Статистика</span>
       </div>
       <div class="nav-group-label" data-i18n="nav.other">Інше</div>
+      <div class="nav-item" onclick="showPage('referral')" data-page="referral">
+        <span class="nav-icon">🎁</span><span>Реферали</span>
+        <span class="nav-badge" id="refBadge" style="display:none">NEW</span>
+      </div>
       <div class="nav-item" onclick="showPage('premium')" data-page="premium">
         <span class="nav-icon">👑</span><span data-i18n="nav.premium">Premium</span>
         <span class="nav-crown">✨</span>
@@ -267,6 +271,17 @@
         <div class="stats-grid" id="statsGrid"></div>
         <div class="section-title" data-i18n="stats.history">📜 Історія</div>
         <div id="historyList"></div>
+      </div>
+
+      <!-- PAGE: REFERRAL -->
+      <div class="page" id="page-referral">
+        <div class="page-header">
+          <div>
+            <div class="page-title">🎁 Реферальна програма</div>
+            <div class="page-sub">Запрошуй друзів — отримуй монети</div>
+          </div>
+        </div>
+        <div id="referralContent"></div>
       </div>
 
       <!-- PAGE: PREMIUM -->

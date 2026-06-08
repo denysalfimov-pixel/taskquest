@@ -64,6 +64,15 @@ db.exec(`
     FOREIGN KEY(user_id)   REFERENCES users(id),
     FOREIGN KEY(friend_id) REFERENCES users(id)
   );
+  CREATE TABLE IF NOT EXISTS referrals (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    referrer_id INTEGER,
+    referred_id INTEGER,
+    bonus_paid  INTEGER DEFAULT 0,
+    created_at  TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY(referrer_id) REFERENCES users(id),
+    FOREIGN KEY(referred_id) REFERENCES users(id)
+  );
   CREATE TABLE IF NOT EXISTS history (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id    INTEGER,
@@ -145,13 +154,33 @@ function auth(req, res, next) {
 }
 
 // ── AUTH ROUTES ───────────────────────────────────────────
-app.get('/auth/google',
-  passport.authenticate('google', { scope: ['profile', 'email'] })
-);
+// Зберігаємо реф-код перед редіректом на Google
+app.get('/auth/google', (req, res, next) => {
+  if (req.query.ref) req.session.refCode = req.query.ref.toUpperCase();
+  passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
+});
 
 app.get('/auth/google/callback',
   passport.authenticate('google', { failureRedirect: '/?error=auth' }),
-  (req, res) => res.redirect('/')
+  (req, res) => {
+    // Обробляємо реферал після реєстрації
+    if (req.session.refCode && req.user) {
+      const refCode = req.session.refCode;
+      delete req.session.refCode;
+      const referrer = db.prepare('SELECT id FROM users WHERE code = ?').get(refCode);
+      if (referrer && referrer.id !== req.user.id) {
+        const alreadyReferred = db.prepare('SELECT id FROM referrals WHERE referred_id = ?').get(req.user.id);
+        if (!alreadyReferred) {
+          db.prepare('INSERT INTO referrals (referrer_id, referred_id, bonus_paid) VALUES (?,?,1)').run(referrer.id, req.user.id);
+          // Бонус рефереру — 100 монет
+          db.prepare('UPDATE users SET coins = coins + 100 WHERE id = ?').run(referrer.id);
+          // Бонус новому користувачу — 50 монет
+          db.prepare('UPDATE users SET coins = coins + 50 WHERE id = ?').run(req.user.id);
+        }
+      }
+    }
+    res.redirect('/');
+  }
 );
 
 app.get('/auth/logout', (req, res) => {
@@ -163,7 +192,10 @@ app.get('/auth/me', (req, res) => {
   const inv = db.prepare('SELECT item_id, count FROM inventory WHERE user_id = ?').all(req.user.id);
   const inventory = {};
   inv.forEach(i => { if (i.count > 0) inventory[i.item_id] = i.count; });
-  res.json({ user: { ...req.user, inventory } });
+  // Статистика рефералів
+  const referrals = db.prepare('SELECT COUNT(*) as cnt FROM referrals WHERE referrer_id = ?').get(req.user.id);
+  const refCount = referrals ? referrals.cnt : 0;
+  res.json({ user: { ...req.user, inventory, refCount } });
 });
 
 // ── USER API ──────────────────────────────────────────────
