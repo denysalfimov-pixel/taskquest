@@ -375,25 +375,23 @@ function getModifier() {
 //  STATE
 // ═══════════════════════════════════════════════════════════════
 let S = {
-  user: null,        // { name, email, avatar, code }
-  coins: 150,
-  xp: 0,
-  level: 1,
-  streak: 0,
-  lastTaskDate: null,
-  tasks: [],
-  inventory: {},     // itemId → count
-  activeBuffs: [],   // [{id,effect,uses,icon,label,color}]
-  friends: [],       // [{id,name,avatar,level,xp,online}]
-  friendInvs: {},    // friendId → {itemId:count}
-  history: [],
+  user: null,
+  coins: 150, xp: 0, level: 1, streak: 0, lastTaskDate: null,
+  tasks: [], inventory: {}, activeBuffs: [],
+  friends: [], friendInvs: {}, history: [],
   settings: { notifTasks:true, notifFriends:true, sound:true, showInLB:true },
   premium: false,
-  dailyGenerations: 0,
-  dailyGenerationsDate: '',
-  shopStock: {},     // itemId → count (resets daily)
-  shopStockDate: '',
-  recentTaskKeys: [], // для уникнення повторів — зберігає ключі останніх 30 завдань
+  dailyGenerations: 0, dailyGenerationsDate: '',
+  shopStock: {}, shopStockDate: '',
+  recentTaskKeys: [],
+  achievements: {},       // id → { unlocked, claimed, progress }
+  dailyChallenges: [],    // [{id,title,icon,goal,current,reward,type}]
+  dailyChallengesDate: '',
+  wheelSpinDate: '',      // дата останнього кручення колеса
+  wheelSpinsLeft: 1,      // безкоштовних кручень (1/день, premium=3)
+  totalTasksDone: 0,      // лічильник для досягнень
+  totalCoinsEarned: 0,
+  totalLegendary: 0,
 };
 
 const SAVE_KEY = 'tq_save_v2';
@@ -415,6 +413,10 @@ function todayStr() { return new Date().toISOString().slice(0,10); }
 function checkDailyReset() {
   const today = todayStr();
   if (S.dailyGenerationsDate !== today) { S.dailyGenerations = 0; S.dailyGenerationsDate = today; }
+  // Скидаємо колесо фортуни
+  if (S.wheelSpinDate !== today) { S.wheelSpinsLeft = S.premium ? 3 : 1; S.wheelSpinDate = today; }
+  // Генеруємо щоденні челенджі
+  if (S.dailyChallengesDate !== today) { S.dailyChallenges = generateDailyChallenges(); S.dailyChallengesDate = today; }
   if (S.shopStockDate !== today) {
     // Grow-a-Garden: предмети з'являються з різною ймовірністю залежно від рідкості
     S.shopStock = {};
@@ -550,7 +552,8 @@ function showPage(name) {
     shop: renderShop, friends: renderFriends,
     leaderboard: renderLeaderboard, stats: renderStats,
     premium: renderPremium, settings: renderSettings,
-    referral: renderReferral,
+    referral: renderReferral, achievements: renderAchievements,
+    challenges: renderDailyChallenges, wheel: renderWheel,
   };
   if (renders[name]) renders[name]();
 }
@@ -798,6 +801,24 @@ function completeTask(task) {
   }
   S.history.unshift({ icon:task.icon, title:task.title, type:task.type, diff:task.diff, coins, xp, item:dropped?iName(dropped):null, date:new Date().toLocaleString() });
   if (S.history.length>100) S.history.pop();
+  // Лічильники для досягнень
+  S.totalTasksDone = (S.totalTasksDone||0)+1;
+  S.totalCoinsEarned = (S.totalCoinsEarned||0)+coins;
+  if(task.diff==='legendary') S.totalLegendary=(S.totalLegendary||0)+1;
+  // Щоденні челенджі
+  checkDailyReset();
+  updateChallenge('complete');
+  if(task.diff==='hard') updateChallenge('hard');
+  if(task.diff==='easy') updateChallenge('easy');
+  if(task.diff==='legendary') updateChallenge('legendary');
+  if(task.type==='outdoor') updateChallenge('outdoor');
+  if(task.type==='home') updateChallenge('home');
+  // Перевірка досягнень
+  checkAchievements();
+  // Бейдж челенджів
+  const chDone = (S.dailyChallenges||[]).filter(c=>c.done).length;
+  const chEl=document.getElementById('challengeBadge');
+  if(chEl) chEl.textContent=chDone<3?String(3-chDone):'';
   saveState();
   updateHeader();
   renderTasks();
@@ -1292,6 +1313,257 @@ function shareRef(platform) {
     whatsapp: `https://wa.me/?text=${text}%20${url}`,
   };
   window.open(links[platform], '_blank');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  🏆 ACHIEVEMENTS
+// ═══════════════════════════════════════════════════════════════
+const ACHIEVEMENTS = [
+  {id:'first_task',    icon:'🌱', title:{ua:'Перший крок',en:'First Step'}, desc:{ua:'Виконай перше завдання',en:'Complete your first task'}, goal:1,  type:'tasks',  reward:{coins:50,xp:100}},
+  {id:'task10',        icon:'🔥', title:{ua:'На хвилі',en:'On a Roll'}, desc:{ua:'Виконай 10 завдань',en:'Complete 10 tasks'}, goal:10, type:'tasks',  reward:{coins:100,xp:200}},
+  {id:'task50',        icon:'⚡', title:{ua:'Продуктивний',en:'Productive'}, desc:{ua:'Виконай 50 завдань',en:'Complete 50 tasks'}, goal:50, type:'tasks',  reward:{coins:300,xp:500,item:'clover'}},
+  {id:'task100',       icon:'💎', title:{ua:'Майстер задач',en:'Task Master'}, desc:{ua:'Виконай 100 завдань',en:'Complete 100 tasks'}, goal:100,type:'tasks',  reward:{coins:500,xp:1000,item:'stardust'}},
+  {id:'streak3',       icon:'🔥', title:{ua:'Серія 3 дні',en:'3-Day Streak'}, desc:{ua:'3 дні поспіль',en:'3 days in a row'}, goal:3,  type:'streak', reward:{coins:75,xp:150}},
+  {id:'streak7',       icon:'🌟', title:{ua:'Тижнева серія',en:'Week Streak'}, desc:{ua:'7 днів поспіль',en:'7 days in a row'}, goal:7,  type:'streak', reward:{coins:200,xp:400,item:'flask'}},
+  {id:'streak30',      icon:'👑', title:{ua:'Місячна серія',en:'Month Streak'}, desc:{ua:'30 днів поспіль',en:'30 days in a row'}, goal:30, type:'streak', reward:{coins:1000,xp:2000,item:'dragon'}},
+  {id:'legendary1',    icon:'🐉', title:{ua:'Легендарний',en:'Legendary One'}, desc:{ua:'Виконай 1 легендарне завдання',en:'Complete 1 legendary task'}, goal:1,  type:'legendary',reward:{coins:150,xp:300}},
+  {id:'legendary10',   icon:'🌈', title:{ua:'Мисливець легенд',en:'Legend Hunter'}, desc:{ua:'Виконай 10 легендарних',en:'Complete 10 legendary'}, goal:10, type:'legendary',reward:{coins:500,xp:800,item:'rainbow'}},
+  {id:'coins500',      icon:'🪙', title:{ua:'Накопичувач',en:'Collector'}, desc:{ua:'Зароби 500 монет всього',en:'Earn 500 total coins'}, goal:500,type:'coins',  reward:{coins:100,xp:200}},
+  {id:'coins5000',     icon:'💰', title:{ua:'Скарбник',en:'Treasurer'}, desc:{ua:'Зароби 5000 монет всього',en:'Earn 5000 total coins'}, goal:5000,type:'coins', reward:{coins:500,xp:500,item:'gem'}},
+  {id:'level5',        icon:'🚀', title:{ua:'Рівень 5',en:'Level 5'}, desc:{ua:'Досягни 5-го рівня',en:'Reach level 5'}, goal:5,  type:'level',  reward:{coins:200,xp:0,item:'moon'}},
+  {id:'level10',       icon:'🏆', title:{ua:'Ветеран',en:'Veteran'}, desc:{ua:'Досягни 10-го рівня',en:'Reach level 10'}, goal:10, type:'level',  reward:{coins:500,xp:0,item:'phoenix'}},
+  {id:'friends3',      icon:'👥', title:{ua:'Компанія',en:'Company'}, desc:{ua:'Додай 3 друзів',en:'Add 3 friends'}, goal:3,  type:'friends', reward:{coins:150,xp:200}},
+  {id:'shop5',         icon:'🛒', title:{ua:'Покупець',en:'Shopper'}, desc:{ua:'Купи 5 предметів у магазині',en:'Buy 5 items in shop'}, goal:5,  type:'shop',   reward:{coins:100,xp:150}},
+  {id:'easter',        icon:'🥚', title:{ua:'Мисливець секретів',en:'Secret Hunter'}, desc:{ua:'Знайди пасхалку',en:'Find the easter egg'}, goal:1,  type:'easter', reward:{coins:200,xp:300,item:'compass'}},
+];
+
+function getAchProgress(ach) {
+  switch(ach.type) {
+    case 'tasks':    return Math.min(S.totalTasksDone||0, ach.goal);
+    case 'streak':   return Math.min(S.streak||0, ach.goal);
+    case 'legendary':return Math.min(S.totalLegendary||0, ach.goal);
+    case 'coins':    return Math.min(S.totalCoinsEarned||0, ach.goal);
+    case 'level':    return Math.min(S.level||1, ach.goal);
+    case 'friends':  return Math.min(S.friends?.length||0, ach.goal);
+    case 'shop':     return Math.min(S.achievements[ach.id]?.progress||0, ach.goal);
+    case 'easter':   return S.achievements[ach.id]?.unlocked ? 1 : 0;
+    default: return 0;
+  }
+}
+
+function checkAchievements() {
+  ACHIEVEMENTS.forEach(ach => {
+    if (S.achievements[ach.id]?.unlocked) return;
+    const prog = getAchProgress(ach);
+    if (prog >= ach.goal) {
+      if (!S.achievements[ach.id]) S.achievements[ach.id] = {};
+      S.achievements[ach.id].unlocked = true;
+      // Авто-нарахування нагороди
+      S.coins += ach.reward.coins || 0;
+      addXP(ach.reward.xp || 0);
+      if (ach.reward.item && ITEMS[ach.reward.item]) addInv(ach.reward.item, 1);
+      saveState(); updateHeader();
+      showAchievementToast(ach);
+    }
+  });
+}
+
+function showAchievementToast(ach) {
+  const t2 = document.createElement('div');
+  t2.className = 'toast show';
+  t2.style.cssText = 'border-color:rgba(240,198,116,.6);background:linear-gradient(135deg,var(--bg2),rgba(240,198,116,.08))';
+  t2.innerHTML = `<span style="font-size:20px">${ach.icon}</span><div><div style="font-weight:800;color:var(--gold)">🏆 Досягнення!</div><div style="font-size:12px">${ach.title[currentLang]||ach.title.ua}</div></div>`;
+  document.getElementById('toastWrap').appendChild(t2);
+  setTimeout(() => t2.remove(), 4000);
+}
+
+function renderAchievements() {
+  const el = document.getElementById('achievementsContent'); if(!el) return;
+  const unlocked = ACHIEVEMENTS.filter(a => S.achievements[a.id]?.unlocked);
+  const locked   = ACHIEVEMENTS.filter(a => !S.achievements[a.id]?.unlocked);
+  const renderAch = (ach, done) => {
+    const prog = getAchProgress(ach);
+    const pct = Math.min(100, Math.round((prog/ach.goal)*100));
+    return `<div class="ach-card ${done?'ach-done':''}">
+      <div class="ach-icon">${ach.icon}</div>
+      <div class="ach-info">
+        <div class="ach-title">${ach.title[currentLang]||ach.title.ua}</div>
+        <div class="ach-desc">${ach.desc[currentLang]||ach.desc.ua}</div>
+        ${!done?`<div class="ach-bar"><div class="ach-fill" style="width:${pct}%"></div></div>
+        <div class="ach-prog">${prog}/${ach.goal}</div>`:''}
+      </div>
+      <div class="ach-reward">
+        ${done?'✅':''}
+        ${ach.reward.coins?`<div style="color:var(--gold);font-size:12px;font-weight:700">🪙${ach.reward.coins}</div>`:''}
+        ${ach.reward.item&&ITEMS[ach.reward.item]?`<div style="font-size:14px">${ITEMS[ach.reward.item].icon}</div>`:''}
+      </div>
+    </div>`;
+  };
+  el.innerHTML = `
+    <div style="font-size:14px;color:var(--sub);margin-bottom:16px">🏆 ${unlocked.length}/${ACHIEVEMENTS.length} розблоковано</div>
+    ${unlocked.length?`<div class="section-title" style="color:var(--gold)">✅ Виконані</div>${unlocked.map(a=>renderAch(a,true)).join('')}`:''}
+    <div class="section-title">🔒 В процесі</div>
+    ${locked.map(a=>renderAch(a,false)).join('')}
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  👾 DAILY CHALLENGES
+// ═══════════════════════════════════════════════════════════════
+const CHALLENGE_POOL = [
+  {id:'do2',   icon:'✅', title:{ua:'Виконай 2 завдання',en:'Complete 2 tasks'}, goal:2,  type:'complete', reward:{coins:80, xp:120}},
+  {id:'do3',   icon:'🔥', title:{ua:'Виконай 3 завдання',en:'Complete 3 tasks'}, goal:3,  type:'complete', reward:{coins:150,xp:200}},
+  {id:'hard1', icon:'💪', title:{ua:'1 Важке завдання',en:'1 Hard task'},       goal:1,  type:'hard',     reward:{coins:120,xp:180}},
+  {id:'easy3', icon:'🌱', title:{ua:'3 Легких завдання',en:'3 Easy tasks'},     goal:3,  type:'easy',     reward:{coins:100,xp:150}},
+  {id:'leg1',  icon:'👑', title:{ua:'Легендарне завдання',en:'Legendary task'}, goal:1,  type:'legendary',reward:{coins:300,xp:400,item:'clover'}},
+  {id:'gen5',  icon:'🎲', title:{ua:'Згенеруй 5 завдань',en:'Generate 5 tasks'},goal:5,  type:'generate', reward:{coins:60, xp:80}},
+  {id:'out2',  icon:'🌳', title:{ua:'2 завдання надворі',en:'2 Outdoor tasks'}, goal:2,  type:'outdoor',  reward:{coins:100,xp:150}},
+  {id:'home2', icon:'🏠', title:{ua:'2 домашніх завдання',en:'2 Home tasks'},   goal:2,  type:'home',     reward:{coins:90, xp:130}},
+  {id:'buy1',  icon:'🛒', title:{ua:'Купи предмет у магазині',en:'Buy a shop item'}, goal:1, type:'buy', reward:{coins:70, xp:100}},
+];
+
+function generateDailyChallenges() {
+  const shuffled = [...CHALLENGE_POOL].sort(()=>Math.random()-.5);
+  return shuffled.slice(0,3).map(c => ({...c, current:0, done:false}));
+}
+
+function updateChallenge(type, amount=1) {
+  if (!S.dailyChallenges?.length) return;
+  let changed = false;
+  S.dailyChallenges.forEach(ch => {
+    if (ch.done) return;
+    if (ch.type === type || (type==='complete'&&ch.type==='complete')) {
+      ch.current = Math.min(ch.goal, (ch.current||0)+amount);
+      if (ch.current >= ch.goal) {
+        ch.done = true; changed = true;
+        S.coins += ch.reward.coins||0;
+        addXP(ch.reward.xp||0);
+        if(ch.reward.item&&ITEMS[ch.reward.item]) addInv(ch.reward.item,1);
+        saveState(); updateHeader();
+        toast(`${ch.icon} Челендж виконано! +${ch.reward.coins}🪙`,'ok','🎯');
+      }
+    }
+  });
+  if(changed) saveState();
+}
+
+function renderDailyChallenges() {
+  const el = document.getElementById('challengesContent'); if(!el) return;
+  checkDailyReset();
+  if (!S.dailyChallenges?.length) S.dailyChallenges = generateDailyChallenges();
+  const done = S.dailyChallenges.filter(c=>c.done).length;
+  el.innerHTML = `
+    <div style="font-size:14px;color:var(--sub);margin-bottom:16px">🎯 ${done}/3 виконано сьогодні • Оновлення о 00:00</div>
+    ${S.dailyChallenges.map(ch=>{
+      const pct=Math.min(100,Math.round(((ch.current||0)/ch.goal)*100));
+      return `<div class="challenge-card ${ch.done?'ch-done':''}">
+        <div style="font-size:28px">${ch.icon}</div>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:15px">${ch.title[currentLang]||ch.title.ua}</div>
+          <div class="ach-bar" style="margin-top:6px"><div class="ach-fill" style="width:${pct}%;background:${ch.done?'var(--green)':'var(--blue)'}"></div></div>
+          <div style="font-size:12px;color:var(--sub);margin-top:3px">${ch.current||0}/${ch.goal}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          ${ch.done?'<div style="font-size:20px">✅</div>':''}
+          <div style="color:var(--gold);font-size:13px;font-weight:700">+${ch.reward.coins}🪙</div>
+          <div style="color:var(--purple);font-size:12px">+${ch.reward.xp}⚡</div>
+          ${ch.reward.item&&ITEMS[ch.reward.item]?`<div>${ITEMS[ch.reward.item].icon}</div>`:''}
+        </div>
+      </div>`;
+    }).join('')}
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  🎰 WHEEL OF FORTUNE
+// ═══════════════════════════════════════════════════════════════
+const WHEEL_PRIZES = [
+  {label:'🪙 50',    color:'#f0c674', type:'coins',  value:50},
+  {label:'⚡ 100',   color:'#bc8cff', type:'xp',     value:100},
+  {label:'🍀',       color:'#3fb950', type:'item',   value:'clover'},
+  {label:'🪙 150',   color:'#ff9100', type:'coins',  value:150},
+  {label:'📜',       color:'#8b949e', type:'item',   value:'scroll'},
+  {label:'⚡ 300',   color:'#58a6ff', type:'xp',     value:300},
+  {label:'🪙 25',    color:'#f0c674', type:'coins',  value:25},
+  {label:'✨',       color:'#cc00ff', type:'item',   value:'stardust'},
+  {label:'🪙 75',    color:'#ff9100', type:'coins',  value:75},
+  {label:'🔮',       color:'#39d0d8', type:'item',   value:'crystal'},
+  {label:'⚡ 200',   color:'#bc8cff', type:'xp',     value:200},
+  {label:'🐉',       color:'#ff4444', type:'item',   value:'dragon'},
+];
+
+let wheelSpinning = false;
+
+function renderWheel() {
+  const el = document.getElementById('wheelContent'); if(!el) return;
+  checkDailyReset();
+  const spinsLeft = S.wheelSpinsLeft||0;
+  const size = Math.min(300, window.innerWidth-60);
+  const cx=size/2, cy=size/2, r=size/2-10;
+  const slices=WHEEL_PRIZES.length;
+  const angle=360/slices;
+  let svgSlices='', svgLabels='';
+  WHEEL_PRIZES.forEach((p,i)=>{
+    const start=(i*angle-90)*Math.PI/180;
+    const end=((i+1)*angle-90)*Math.PI/180;
+    const x1=cx+r*Math.cos(start), y1=cy+r*Math.sin(start);
+    const x2=cx+r*Math.cos(end),   y2=cy+r*Math.sin(end);
+    svgSlices+=`<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 0,1 ${x2},${y2} Z" fill="${p.color}" stroke="#0d1117" stroke-width="2"/>`;
+    const mid=(start+end)/2, lr=r*.65;
+    svgLabels+=`<text x="${cx+lr*Math.cos(mid)}" y="${cy+lr*Math.sin(mid)}" text-anchor="middle" dominant-baseline="middle" font-size="${size*0.048}" fill="#fff" font-weight="900" transform="rotate(${(i+.5)*angle},${cx+lr*Math.cos(mid)},${cy+lr*Math.sin(mid)})">${p.label}</text>`;
+  });
+  el.innerHTML = `
+    <div style="text-align:center">
+      <div style="font-size:14px;color:var(--sub);margin-bottom:12px">🎰 Кручень залишилось: <strong style="color:${spinsLeft>0?'var(--green)':'var(--red)'}">${spinsLeft}</strong> ${S.premium?'(Premium: 3/день)':'(1/день • Premium = 3/день)'}</div>
+      <div style="position:relative;display:inline-block;margin-bottom:16px">
+        <div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);font-size:24px;z-index:10">▼</div>
+        <svg id="wheelSvg" width="${size}" height="${size}" style="border-radius:50%;box-shadow:0 0 30px rgba(0,0,0,.5);cursor:${spinsLeft>0?'pointer':'not-allowed'};transition:transform 0.1s" onclick="spinWheel()">
+          <g id="wheelGroup">${svgSlices}${svgLabels}</g>
+        </svg>
+      </div>
+      <br>
+      <button onclick="spinWheel()" ${spinsLeft<=0?'disabled':''} style="padding:12px 32px;border-radius:var(--r);background:${spinsLeft>0?'linear-gradient(135deg,var(--green),#2ea843)':'var(--bg3)'};color:${spinsLeft>0?'#000':'var(--sub)'};font-weight:900;font-size:15px;cursor:${spinsLeft>0?'pointer':'not-allowed'}">
+        🎰 ${spinsLeft>0?'Крутити!':'Завтра буде нове кручення'}
+      </button>
+      <div id="wheelResult" style="margin-top:16px;min-height:32px"></div>
+    </div>
+  `;
+}
+
+function spinWheel() {
+  if(wheelSpinning) return;
+  checkDailyReset();
+  if((S.wheelSpinsLeft||0)<=0){toast('Кручення скінчились! Завтра ще!','warn');return;}
+  wheelSpinning=true; S.wheelSpinsLeft--;
+  // Вибираємо приз (рідкісні предмети рідше)
+  const weights=WHEEL_PRIZES.map(p=>p.type==='item'&&ITEMS[p.value]?.rarity==='legendary'?1:p.type==='item'?3:5);
+  const total=weights.reduce((a,b)=>a+b,0);
+  let rand=Math.random()*total, idx=0;
+  for(let i=0;i<weights.length;i++){rand-=weights[i];if(rand<=0){idx=i;break;}}
+  const prize=WHEEL_PRIZES[idx];
+  const slices=WHEEL_PRIZES.length;
+  const deg=360/slices;
+  const targetAngle=3600+(180-idx*deg-deg/2);
+  const svg=document.getElementById('wheelGroup');
+  if(!svg){wheelSpinning=false;return;}
+  svg.style.transformOrigin=`${Math.min(300,window.innerWidth-60)/2}px ${Math.min(300,window.innerWidth-60)/2}px`;
+  svg.style.transition='transform 4s cubic-bezier(.17,.67,.12,.99)';
+  svg.style.transform=`rotate(${targetAngle}deg)`;
+  setTimeout(()=>{
+    wheelSpinning=false; saveState();
+    // Нарахування призу
+    let msg='';
+    if(prize.type==='coins'){S.coins+=prize.value;msg=`🪙 +${prize.value} монет!`;}
+    else if(prize.type==='xp'){addXP(prize.value);msg=`⚡ +${prize.value} XP!`;}
+    else if(prize.type==='item'&&ITEMS[prize.value]){addInv(prize.value,1);msg=`${ITEMS[prize.value].icon} ${iName(ITEMS[prize.value])}!`;}
+    saveState(); updateHeader();
+    const res=document.getElementById('wheelResult');
+    if(res) res.innerHTML=`<div style="font-size:18px;font-weight:900;color:var(--gold);animation:pop .5s both">🎉 ${msg}</div>`;
+    toast(`🎰 ${msg}`,'ok');
+    spawnParticles(15);
+    checkAchievements();
+    renderWheel();
+  },4100);
 }
 
 async function selectPlan(plan) {

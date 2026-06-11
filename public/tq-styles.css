@@ -462,6 +462,24 @@ select option { background: var(--bg2); }
 /* Better header glow on scroll */
 .header { backdrop-filter: blur(12px); background: rgba(22,27,34,.95); }
 
+/* ═══════════════════════════════ ACHIEVEMENTS ═══════════════════════════════ */
+.ach-card { display:flex; align-items:center; gap:14px; background:var(--bg3); border:1px solid var(--border); border-radius:var(--r2); padding:14px 16px; margin-bottom:10px; transition:all .2s; }
+.ach-card:hover { border-color:var(--border2); transform:translateX(3px); }
+.ach-done { background:linear-gradient(135deg,var(--bg3),rgba(63,185,80,.08)); border-color:rgba(63,185,80,.3); }
+.ach-icon { font-size:32px; flex-shrink:0; }
+.ach-info { flex:1; min-width:0; }
+.ach-title { font-size:14px; font-weight:800; margin-bottom:2px; }
+.ach-desc { font-size:12px; color:var(--sub); margin-bottom:5px; }
+.ach-bar { height:5px; background:var(--bg4); border-radius:3px; overflow:hidden; }
+.ach-fill { height:100%; background:linear-gradient(90deg,var(--blue),var(--purple)); border-radius:3px; transition:width .5s; }
+.ach-prog { font-size:11px; color:var(--sub2); margin-top:2px; }
+.ach-reward { flex-shrink:0; text-align:center; min-width:44px; }
+
+/* ═══════════════════════════════ CHALLENGES ═══════════════════════════════ */
+.challenge-card { display:flex; align-items:center; gap:14px; background:var(--bg3); border:1px solid var(--border); border-radius:var(--r2); padding:16px; margin-bottom:12px; transition:all .2s; }
+.challenge-card:hover { border-color:var(--blue); }
+.ch-done { background:linear-gradient(135deg,var(--bg3),rgba(63,185,80,.08)); border-color:rgba(63,185,80,.3); opacity:.8; }
+
 /* ═══════════════════════════════ BOTTOM NAV ═══════════════════════════════ */
 .bottom-nav {
   display: none;

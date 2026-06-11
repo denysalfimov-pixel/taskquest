@@ -129,9 +129,19 @@
         <span class="nav-icon">📊</span><span data-i18n="nav.stats">Статистика</span>
       </div>
       <div class="nav-group-label" data-i18n="nav.other">Інше</div>
+      <div class="nav-item" onclick="showPage('achievements')" data-page="achievements">
+        <span class="nav-icon">🏆</span><span>Досягнення</span>
+      </div>
+      <div class="nav-item" onclick="showPage('challenges')" data-page="challenges">
+        <span class="nav-icon">👾</span><span>Челенджі</span>
+        <span class="nav-badge" id="challengeBadge"></span>
+      </div>
+      <div class="nav-item" onclick="showPage('wheel')" data-page="wheel">
+        <span class="nav-icon">🎰</span><span>Колесо</span>
+        <span class="nav-badge" id="wheelBadge">1</span>
+      </div>
       <div class="nav-item" onclick="showPage('referral')" data-page="referral">
         <span class="nav-icon">🎁</span><span>Реферали</span>
-        <span class="nav-badge" id="refBadge" style="display:none">NEW</span>
       </div>
       <div class="nav-item" onclick="showPage('premium')" data-page="premium">
         <span class="nav-icon">👑</span><span data-i18n="nav.premium">Premium</span>
@@ -271,6 +281,27 @@
         <div class="stats-grid" id="statsGrid"></div>
         <div class="section-title" data-i18n="stats.history">📜 Історія</div>
         <div id="historyList"></div>
+      </div>
+
+      <!-- PAGE: ACHIEVEMENTS -->
+      <div class="page" id="page-achievements">
+        <div class="page-title">🏆 Досягнення</div>
+        <div class="page-sub">Виконуй завдання — розблоковуй нагороди</div>
+        <div id="achievementsContent" style="margin-top:16px"></div>
+      </div>
+
+      <!-- PAGE: CHALLENGES -->
+      <div class="page" id="page-challenges">
+        <div class="page-title">👾 Щоденні челенджі</div>
+        <div class="page-sub">Нові завдання кожен день о 00:00</div>
+        <div id="challengesContent" style="margin-top:16px"></div>
+      </div>
+
+      <!-- PAGE: WHEEL -->
+      <div class="page" id="page-wheel">
+        <div class="page-title">🎰 Колесо фортуни</div>
+        <div class="page-sub">Крути щодня — вигравай призи!</div>
+        <div id="wheelContent" style="margin-top:16px"></div>
       </div>
 
       <!-- PAGE: REFERRAL -->
