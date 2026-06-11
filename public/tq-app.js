@@ -247,19 +247,45 @@ function applyI18n() {
 // ═══════════════════════════════════════════════════════════════
 //  ITEMS DB
 // ═══════════════════════════════════════════════════════════════
+// rarity → spawn chance in shop per day (like Grow a Garden)
+const RARITY_SPAWN = { common:0.95, rare:0.55, epic:0.20, legendary:0.04, mythic:0.01 };
+const RARITY_STOCK = { common:[3,5], rare:[2,3], epic:[1,2], legendary:[1,1], mythic:[1,1] };
+
 const ITEMS = {
-  energy:   { id:'energy',   icon:'⚡', name:{ua:'Енергетик',en:'Energy Drink',fr:'Boisson Énergétique'}, desc:{ua:'+100% XP за наступне завдання',en:'+100% XP on next task',fr:'+100% XP sur la prochaine tâche'}, rarity:'common',  price:30,  maxStock:5, effect:'xp2',    buffLabel:'XP ×2',       buffColor:'#bc8cff' },
-  clover:   { id:'clover',   icon:'🍀', name:{ua:'Конюшина удачі',en:'Lucky Clover',fr:'Trèfle chanceux'}, desc:{ua:'+50% монет за наступне',en:'+50% coins on next task',fr:'+50% pièces sur la prochaine'}, rarity:'rare',     price:50,  maxStock:5, effect:'coin50', buffLabel:'Монети +50%',buffColor:'#f0c674' },
-  moon:     { id:'moon',     icon:'🌙', name:{ua:'Місячне зілля',en:'Moon Potion',fr:'Potion lunaire'}, desc:{ua:'Наступне важке = середнє',en:'Next hard task = medium',fr:'Prochaine tâche difficile = moyenne'}, rarity:'rare',     price:60,  maxStock:5, effect:'easy1',  buffLabel:'Складність -1',buffColor:'#58a6ff' },
-  crystal:  { id:'crystal',  icon:'🔮', name:{ua:'Кришталева куля',en:'Crystal Ball',fr:'Boule de cristal'}, desc:{ua:'Побачити наступне завдання',en:'Preview next task',fr:'Voir la prochaine tâche'}, rarity:'epic',     price:80,  maxStock:5, effect:'reveal', buffLabel:'Перегляд',   buffColor:'#39d0d8' },
-  scroll:   { id:'scroll',   icon:'📜', name:{ua:'Сувій пропуску',en:'Skip Scroll',fr:'Parchemin de saut'}, desc:{ua:'Пропустити завдання без штрафу',en:'Skip a task penalty-free',fr:'Passer une tâche sans pénalité'}, rarity:'common',  price:40,  maxStock:5, effect:'skip',   buffLabel:'Пропуск',    buffColor:'#8b949e' },
-  gem:      { id:'gem',      icon:'💎', name:{ua:'Веселковий камінь',en:'Rainbow Gem',fr:'Gemme arc-en-ciel'}, desc:{ua:'Отримати рандомний подарунок',en:'Get a random gift item',fr:'Obtenir un cadeau aléatoire'}, rarity:'epic',     price:100, maxStock:3, effect:'gift',   buffLabel:'Подарунок',  buffColor:'#f788c0' },
-  mask:     { id:'mask',     icon:'🎭', name:{ua:'Золота маска',en:'Golden Mask',fr:'Masque doré'}, desc:{ua:'Обміняти завдання з другом',en:'Swap task with a friend',fr:'Échanger une tâche avec un ami'}, rarity:'epic',     price:90,  maxStock:3, effect:'swap',   buffLabel:'Обмін задач', buffColor:'#f0c674' },
-  flask:    { id:'flask',    icon:'🔥', name:{ua:'Вогненна фляга',en:'Fire Flask',fr:'Fiole de feu'}, desc:{ua:'Серія +1 день',en:'Streak +1 day',fr:'Série +1 jour'}, rarity:'rare',     price:70,  maxStock:5, effect:'streak', buffLabel:'Серія +1',   buffColor:'#ff9100' },
-  stardust: { id:'stardust', icon:'✨', name:{ua:'Зоряний пил',en:'Star Dust',fr:'Poussière d\'étoile'}, desc:{ua:'x2 нагорода з легендарного',en:'x2 reward from legendary task',fr:'x2 récompense d\'une tâche légendaire'}, rarity:'legendary',price:200, maxStock:2, effect:'legend2',buffLabel:'Легенда ×2',buffColor:'#f0c674' },
-  shroom:   { id:'shroom',   icon:'🍄', name:{ua:'Чарівний гриб',en:'Magic Mushroom',fr:'Champignon magique'}, desc:{ua:'+5 хв до часу виконання',en:'+5 min to complete time',fr:'+5 min au temps d\'exécution'}, rarity:'common',  price:25,  maxStock:5, effect:'time5',  buffLabel:'Час +5хв',   buffColor:'#3fb950' },
+  // ── COMMON ─────────────────────────────────────────────
+  energy:   { id:'energy',   icon:'⚡', name:{ua:'Енергетик',en:'Energy Drink',fr:'Boisson Énergétique'}, desc:{ua:'+100% XP за наступне завдання',en:'+100% XP on next task',fr:'+100% XP sur la prochaine'}, rarity:'common',  price:30,  maxStock:5, effect:'xp2',     buffLabel:'XP ×2',        buffColor:'#bc8cff' },
+  scroll:   { id:'scroll',   icon:'📜', name:{ua:'Сувій пропуску',en:'Skip Scroll',fr:'Parchemin de saut'}, desc:{ua:'Пропустити завдання без штрафу',en:'Skip a task penalty-free',fr:'Passer une tâche sans pénalité'}, rarity:'common',  price:40,  maxStock:5, effect:'skip',    buffLabel:'Пропуск',      buffColor:'#8b949e' },
+  shroom:   { id:'shroom',   icon:'🍄', name:{ua:'Чарівний гриб',en:'Magic Mushroom',fr:'Champignon magique'}, desc:{ua:'+5 монет до кожної нагороди',en:'+5 coins to every reward',fr:'+5 pièces à chaque récompense'}, rarity:'common',  price:25,  maxStock:5, effect:'coin5',   buffLabel:'Монети +5',    buffColor:'#3fb950' },
+  ticket:   { id:'ticket',   icon:'🎟️', name:{ua:'Золотий квиток',en:'Gold Ticket',fr:'Ticket doré'}, desc:{ua:'+5 генерацій сьогодні',en:'+5 generations today',fr:'+5 générations aujourd\'hui'}, rarity:'common',  price:35,  maxStock:5, effect:'gen5',    buffLabel:'+5 генерацій',  buffColor:'#f0c674' },
+  tea:      { id:'tea',      icon:'🍵', name:{ua:'Трав\'яний чай',en:'Herbal Tea',fr:'Thé aux herbes'}, desc:{ua:'Відновити серію якщо забув вчора',en:'Restore streak if you forgot yesterday',fr:'Restaurer la série'}, rarity:'common',  price:45,  maxStock:5, effect:'streak1', buffLabel:'Серія +1',     buffColor:'#39d0d8' },
+  // ── RARE ───────────────────────────────────────────────
+  clover:   { id:'clover',   icon:'🍀', name:{ua:'Конюшина удачі',en:'Lucky Clover',fr:'Trèfle chanceux'}, desc:{ua:'+50% монет за наступне завдання',en:'+50% coins on next task',fr:'+50% pièces sur la prochaine'}, rarity:'rare',    price:55,  maxStock:4, effect:'coin50',  buffLabel:'Монети +50%',  buffColor:'#f0c674' },
+  moon:     { id:'moon',     icon:'🌙', name:{ua:'Місячне зілля',en:'Moon Potion',fr:'Potion lunaire'}, desc:{ua:'Важке завдання стає Середнім',en:'Hard task becomes Medium',fr:'Tâche difficile devient Moyenne'}, rarity:'rare',    price:60,  maxStock:4, effect:'easy1',   buffLabel:'Складність -1', buffColor:'#58a6ff' },
+  flask:    { id:'flask',    icon:'🔥', name:{ua:'Вогненна фляга',en:'Fire Flask',fr:'Fiole de feu'}, desc:{ua:'Серія +1 день автоматично',en:'Streak +1 day automatically',fr:'Série +1 jour automatiquement'}, rarity:'rare',    price:70,  maxStock:4, effect:'streak',  buffLabel:'Серія +1',     buffColor:'#ff9100' },
+  magnet:   { id:'magnet',   icon:'🧲', name:{ua:'Магніт',en:'Magnet',fr:'Aimant'}, desc:{ua:'Подвоїти предмети при дропі',en:'Double item drops',fr:'Doubler les drops d\'objets'}, rarity:'rare',    price:75,  maxStock:4, effect:'drop2',   buffLabel:'Дроп ×2',      buffColor:'#39d0d8' },
+  lantern:  { id:'lantern',  icon:'🏮', name:{ua:'Ліхтар щастя',en:'Lucky Lantern',fr:'Lanterne chanceuse'}, desc:{ua:'+30% монет на 3 завдання',en:'+30% coins for 3 tasks',fr:'+30% pièces pour 3 tâches'}, rarity:'rare',    price:80,  maxStock:4, effect:'coin30',  buffLabel:'Монети +30%',  buffColor:'#f788c0' },
+  // ── EPIC ───────────────────────────────────────────────
+  crystal:  { id:'crystal',  icon:'🔮', name:{ua:'Кришталева куля',en:'Crystal Ball',fr:'Boule de cristal'}, desc:{ua:'Наступне завдання — гарантована нагорода',en:'Next task guaranteed reward item',fr:'Prochaine tâche récompense garantie'}, rarity:'epic',    price:90,  maxStock:3, effect:'reveal',  buffLabel:'Гарантований дроп', buffColor:'#39d0d8' },
+  gem:      { id:'gem',      icon:'💎', name:{ua:'Веселковий камінь',en:'Rainbow Gem',fr:'Gemme arc-en-ciel'}, desc:{ua:'Отримати рандомний рідкісний предмет',en:'Get a random rare item',fr:'Obtenir un objet rare aléatoire'}, rarity:'epic',    price:110, maxStock:3, effect:'gift',    buffLabel:'Подарунок',    buffColor:'#f788c0' },
+  mask:     { id:'mask',     icon:'🎭', name:{ua:'Золота маска',en:'Golden Mask',fr:'Masque doré'}, desc:{ua:'+200% XP на наступне завдання',en:'+200% XP on next task',fr:'+200% XP sur la prochaine tâche'}, rarity:'epic',    price:120, maxStock:3, effect:'xp3',     buffLabel:'XP ×3',        buffColor:'#f0c674' },
+  compass:  { id:'compass',  icon:'🧭', name:{ua:'Компас долі',en:'Fate Compass',fr:'Boussole du destin'}, desc:{ua:'Гарантоване Легендарне завдання',en:'Guaranteed Legendary task',fr:'Tâche Légendaire garantie'}, rarity:'epic',    price:150, maxStock:2, effect:'forcelegend',buffLabel:'Легенда гарант.',buffColor:'#ff9100' },
+  crown:    { id:'crown',    icon:'👑', name:{ua:'Корона знань',en:'Crown of Knowledge',fr:'Couronne du savoir'}, desc:{ua:'+50 XP за кожен рівень вгору',en:'+50 XP per level up',fr:'+50 XP par niveau'}, rarity:'epic',    price:130, maxStock:2, effect:'crownxp',  buffLabel:'Корона XP',    buffColor:'#bc8cff' },
+  // ── LEGENDARY ─────────────────────────────────────────
+  stardust: { id:'stardust', icon:'✨', name:{ua:'Зоряний пил',en:'Star Dust',fr:'Poussière d\'étoile'}, desc:{ua:'×2 нагорода з Легендарного завдання',en:'×2 reward from Legendary task',fr:'×2 récompense d\'une tâche Légendaire'}, rarity:'legendary',price:200, maxStock:2, effect:'legend2', buffLabel:'Легенда ×2',   buffColor:'#f0c674' },
+  dragon:   { id:'dragon',   icon:'🐉', name:{ua:'Лускатий дракон',en:'Scaly Dragon',fr:'Dragon écailleux'}, desc:{ua:'+100% монет на 3 завдання',en:'+100% coins for 3 tasks',fr:'+100% pièces pour 3 tâches'}, rarity:'legendary',price:250, maxStock:2, effect:'coin100', buffLabel:'Монети ×2',    buffColor:'#ff4444' },
+  phoenix:  { id:'phoenix',  icon:'🦅', name:{ua:'Фенікс',en:'Phoenix',fr:'Phénix'}, desc:{ua:'Зберегти серію навіть якщо пропустив 2 дні',en:'Save streak even after 2 missed days',fr:'Sauvegarder la série après 2 jours manqués'}, rarity:'legendary',price:300, maxStock:1, effect:'shield2', buffLabel:'Щит серії ×2', buffColor:'#ff6b00' },
+  rainbow:  { id:'rainbow',  icon:'🌈', name:{ua:'Веселка',en:'Rainbow',fr:'Arc-en-ciel'}, desc:{ua:'Всі завдання = Легко на 5 хвилин',en:'All tasks = Easy for 5 minutes',fr:'Toutes tâches = Facile pendant 5 min'}, rarity:'legendary',price:280, maxStock:1, effect:'allearn', buffLabel:'Все Легко!',   buffColor:'#39d0d8' },
+  // ── MYTHIC ────────────────────────────────────────────
+  void:     { id:'void',     icon:'🌑', name:{ua:'Осколок Пустки',en:'Void Shard',fr:'Éclat du Vide'}, desc:{ua:'×5 монет та XP за наступне завдання',en:'×5 coins and XP for next task',fr:'×5 pièces et XP pour la prochaine tâche'}, rarity:'mythic',   price:500, maxStock:1, effect:'void5',   buffLabel:'VOID ×5',      buffColor:'#cc00ff' },
+  cosmos:   { id:'cosmos',   icon:'🌌', name:{ua:'Космічний артефакт',en:'Cosmic Artifact',fr:'Artefact cosmique'}, desc:{ua:'Миттєво отримати 1000 XP',en:'Instantly gain 1000 XP',fr:'Gagner instantanément 1000 XP'}, rarity:'mythic',   price:600, maxStock:1, effect:'xp1000',  buffLabel:'1000 XP',      buffColor:'#cc00ff' },
 };
-const RARITY = { common:{ua:'Звичайний',en:'Common',fr:'Commun'}, rare:{ua:'Рідкісний',en:'Rare',fr:'Rare'}, epic:{ua:'Епічний',en:'Epic',fr:'Épique'}, legendary:{ua:'Легендарний',en:'Legendary',fr:'Légendaire'} };
+const RARITY = {
+  common:   {ua:'Звичайний',   en:'Common',    fr:'Commun'},
+  rare:     {ua:'Рідкісний',   en:'Rare',      fr:'Rare'},
+  epic:     {ua:'Епічний',     en:'Epic',      fr:'Épique'},
+  legendary:{ua:'Легендарний', en:'Legendary', fr:'Légendaire'},
+  mythic:   {ua:'✦ МІСТИЧНИЙ',en:'✦ MYTHIC',  fr:'✦ MYTHIQUE'},
+};
 function iName(item) { return item.name[currentLang] || item.name.ua; }
 function iDesc(item)  { return item.desc[currentLang] || item.desc.ua; }
 
@@ -390,8 +416,21 @@ function checkDailyReset() {
   const today = todayStr();
   if (S.dailyGenerationsDate !== today) { S.dailyGenerations = 0; S.dailyGenerationsDate = today; }
   if (S.shopStockDate !== today) {
+    // Grow-a-Garden: предмети з'являються з різною ймовірністю залежно від рідкості
     S.shopStock = {};
-    Object.values(ITEMS).forEach(it => { S.shopStock[it.id] = it.maxStock; });
+    // Зберігаємо seed для детермінованості протягом дня
+    const daySeed = today.replace(/-/g,'');
+    let rng = parseInt(daySeed) % 999983;
+    function seededRand() { rng=(rng*1664525+1013904223)&0xffffffff; return (rng>>>0)/0xffffffff; }
+    Object.values(ITEMS).forEach(it => {
+      const spawnChance = RARITY_SPAWN[it.rarity] || 0.5;
+      if (seededRand() < spawnChance) {
+        const [min,max] = RARITY_STOCK[it.rarity] || [1,3];
+        S.shopStock[it.id] = Math.floor(min + seededRand()*(max-min+1));
+      } else {
+        S.shopStock[it.id] = 0; // не з'явився сьогодні
+      }
+    });
     S.shopStockDate = today;
   }
 }
@@ -516,6 +555,46 @@ function showPage(name) {
   if (renders[name]) renders[name]();
 }
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+
+// ═══════════════════════════════════════════════════════════════
+//  🥚 EASTER EGG — клік на логотип 7 разів за 3 секунди
+// ═══════════════════════════════════════════════════════════════
+let eggClicks=0, eggTimer=null, eggUsed=false;
+function eggClick() {
+  if(eggUsed) { toast('Пасхалку вже використано 🥚','warn'); return; }
+  eggClicks++;
+  clearTimeout(eggTimer);
+  eggTimer = setTimeout(()=>{ eggClicks=0; }, 3000);
+  if(eggClicks>=7) {
+    eggClicks=0; eggUsed=true;
+    showEasterEgg();
+  }
+}
+function showEasterEgg() {
+  // Нараховуємо бонус
+  S.coins+=200; S.xp+=500;
+  // Даємо рандомний рідкісний предмет
+  const rareItems=['stardust','dragon','phoenix','rainbow'];
+  const bonus=randFrom(rareItems);
+  if(ITEMS[bonus]) addInv(bonus,1);
+  saveState(); updateHeader();
+  const overlay=document.createElement('div');
+  overlay.className='easter-overlay';
+  overlay.innerHTML=`<div class="easter-card">
+    <span class="easter-emoji">🥚</span>
+    <div class="easter-title">✦ ПАСХАЛКА ЗНАЙДЕНА! ✦</div>
+    <div style="color:var(--sub);font-size:14px;margin-bottom:20px">Ти знайшов секрет TaskQuest!</div>
+    <div style="background:var(--bg3);border-radius:var(--r);padding:14px;margin-bottom:16px">
+      <div style="font-size:18px;font-weight:900;color:var(--gold)">🪙 +200 монет</div>
+      <div style="font-size:18px;font-weight:900;color:var(--purple)">⚡ +500 XP</div>
+      ${ITEMS[bonus]?`<div style="font-size:18px;font-weight:900;color:#cc00ff">${ITEMS[bonus].icon} ${iName(ITEMS[bonus])}</div>`:''}
+    </div>
+    <div style="color:var(--sub2);font-size:12px;margin-bottom:16px">🤫 Нікому не кажи де знайшов!</div>
+    <button onclick="this.closest('.easter-overlay').remove();spawnParticles(30);" style="padding:12px 28px;border-radius:var(--r);background:linear-gradient(135deg,#cc00ff,#ff00cc);color:#fff;font-weight:900;font-size:15px">✨ Забрати!</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  spawnParticles(25);
+}
 
 // ═══════════════════════════════════════════════════════════════
 //  TASK ENGINE
@@ -827,6 +906,11 @@ function confirmUse() {
   const it=ITEMS[id];
   if(!invCount(id)){toast('Немає предмету!','err');return;}
   removeInv(id,1); closeOverlay('useItemOverlay');
+  // Миттєві ефекти
+  if(id==='ticket'){S.dailyGenerations=Math.max(0,S.dailyGenerations-5);saveState();renderGenLimit();toast('🎟️ +5 генерацій!','ok');return;}
+  if(id==='tea'){S.streak=Math.max(S.streak,1);saveState();updateHeader();toast('🍵 Серія відновлена!','ok');return;}
+  if(id==='cosmos'){addXP(1000);saveState();updateHeader();toast('🌌 +1000 XP!','ok','🌌');spawnParticles(20);return;}
+  if(id==='void'){activateBuff(it);toast('🌑 VOID активовано! ×5 на наступне завдання!','ok');return;}
   if(it.effect==='gift') {
     const eligible=Object.values(ITEMS).filter(x=>x.id!==id&&invCount(x.id)<x.maxStock);
     if(eligible.length){const gift=randFrom(eligible);addInv(gift.id,1);toast(`${gift.icon} ${iName(gift)}!`,'ok');}
@@ -866,29 +950,51 @@ function consumeBuff(effect){ const b=S.activeBuffs.find(b=>b.effect===effect); 
 function renderShop() {
   const grid=document.getElementById('shopGrid'); if(!grid)return;
   checkDailyReset();
-  const rar={'common':'r-common','rare':'r-rare','epic':'r-epic','legendary':'r-legendary'};
-  grid.innerHTML=Object.values(ITEMS).map(it=>{
+  const rarOrder=['common','rare','epic','legendary','mythic'];
+  const rarClass={'common':'r-common','rare':'r-rare','epic':'r-epic','legendary':'r-legendary','mythic':'r-mythic'};
+  const rarBadge={
+    legendary:'<div class="shop-badge-tag">LEGEND</div>',
+    epic:`<div class="shop-badge-tag" style="background:var(--purple)">EPIC</div>`,
+    mythic:`<div class="shop-badge-tag" style="background:linear-gradient(90deg,#cc00ff,#ff00cc);animation:glow 1.5s infinite">✦ MYTHIC</div>`,
+  };
+  // Сортуємо: спочатку доступні, потім за рідкістю
+  const sorted = Object.values(ITEMS).sort((a,b)=>{
+    const aStock=S.shopStock[a.id]||0, bStock=S.shopStock[b.id]||0;
+    if(aStock>0&&bStock<=0)return -1;
+    if(aStock<=0&&bStock>0)return 1;
+    return rarOrder.indexOf(b.rarity)-rarOrder.indexOf(a.rarity);
+  });
+  const available=sorted.filter(it=>(S.shopStock[it.id]||0)>0);
+  const unavailable=sorted.filter(it=>(S.shopStock[it.id]||0)<=0);
+  const renderCard=it=>{
     const stock=S.shopStock[it.id]||0;
     const hasInv=invCount(it.id)>=it.maxStock;
     const canBuy=S.coins>=it.price&&stock>0&&!hasInv;
     const pct=Math.round((stock/it.maxStock)*100);
-    const badge=it.rarity==='legendary'?'<div class="shop-badge-tag">LEGEND</div>':it.rarity==='epic'?`<div class="shop-badge-tag" style="background:var(--purple)">EPIC</div>`:'';
     let btnTxt=t('shop.buy');
     if(hasInv)btnTxt=t('shop.full');
-    else if(stock<=0)btnTxt=t('shop.noStock');
+    else if(stock<=0)btnTxt='Немає сьогодні';
     else if(S.coins<it.price)btnTxt=t('shop.notEnough');
-    return `<div class="shop-card">
-      ${badge}
+    const mythicStyle=it.rarity==='mythic'?'border-color:rgba(204,0,255,.5);background:linear-gradient(145deg,var(--bg3),rgba(204,0,255,.06));':'';
+    return `<div class="shop-card${stock<=0?' shop-card-unavail':''}" style="${mythicStyle}">
+      ${rarBadge[it.rarity]||''}
       <span class="shop-icon">${it.icon}</span>
       <div class="shop-name">${iName(it)}</div>
-      <div class="inv-rarity ${rar[it.rarity]}" style="margin-bottom:6px">${(RARITY[it.rarity][currentLang]||RARITY[it.rarity].ua).toUpperCase()}</div>
+      <div class="inv-rarity ${rarClass[it.rarity]||'r-common'}" style="margin-bottom:6px">${(RARITY[it.rarity]?.[currentLang]||RARITY[it.rarity]?.ua||it.rarity).toUpperCase()}</div>
       <div class="shop-desc">${iDesc(it)}</div>
-      <div class="shop-stock-info">${t('shop.inStock')} <span style="color:var(--orange);font-weight:700">${stock}/${it.maxStock}</span></div>
-      <div class="shop-stock-bar"><div class="shop-stock-fill" style="width:${pct}%;background:${pct>50?'var(--green)':pct>20?'var(--gold)':'var(--red)'}"></div></div>
+      ${stock>0?`<div class="shop-stock-info">${t('shop.inStock')} <span style="color:${stock<=1?'var(--red)':'var(--orange)'};font-weight:700">${stock}/${it.maxStock}</span></div>
+      <div class="shop-stock-bar"><div class="shop-stock-fill" style="width:${pct}%;background:${pct>50?'var(--green)':pct>20?'var(--gold)':'var(--red)'}"></div></div>`
+      :`<div style="color:var(--sub2);font-size:12px;margin:8px 0">🔒 Не з'явився сьогодні</div>`}
       <div class="shop-price">🪙 ${it.price}</div>
       <button class="btn-buy" onclick="buyItem('${it.id}')" ${canBuy?'':'disabled'}>${btnTxt}</button>
     </div>`;
-  }).join('');
+  };
+  grid.innerHTML = `
+    ${available.length?`<div style="grid-column:1/-1;font-size:13px;color:var(--green);font-weight:700;margin-bottom:4px">✅ Доступно сьогодні (${available.length}/${sorted.length})</div>`:''}
+    ${available.map(renderCard).join('')}
+    ${unavailable.length?`<div style="grid-column:1/-1;font-size:13px;color:var(--sub2);font-weight:700;margin:8px 0 4px">🔒 Недоступно сьогодні — оновлення завтра</div>`:''}
+    ${unavailable.map(renderCard).join('')}
+  `;
 }
 
 function buyItem(id) {
