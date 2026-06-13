@@ -420,6 +420,151 @@ function renderQuests() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  SEASONS
+// ═══════════════════════════════════════════════════════════════
+const SEASON_PASS_LEVELS = [
+  { level:1,  xpReq:0,    free:{ type:'coins', val:50 },                  premium:{ type:'coins', val:100 } },
+  { level:2,  xpReq:300,  free:{ type:'item',  val:'clover' },             premium:{ type:'item',  val:'flask' } },
+  { level:3,  xpReq:700,  free:{ type:'coins', val:100 },                  premium:{ type:'coins', val:200 } },
+  { level:4,  xpReq:1500, free:{ type:'item',  val:'crystal' },            premium:{ type:'item',  val:'stardust' } },
+  { level:5,  xpReq:2500, free:{ type:'coins', val:200 },                  premium:{ type:'item',  val:'dragon' } },
+  { level:6,  xpReq:4000, free:{ type:'item',  val:'mask' },               premium:{ type:'item',  val:'phoenix' } },
+  { level:7,  xpReq:6000, free:{ type:'coins', val:300 },                  premium:{ type:'coins', val:600 } },
+  { level:8,  xpReq:8500, free:{ type:'item',  val:'compass' },            premium:{ type:'item',  val:'void' } },
+  { level:9,  xpReq:11500,free:{ type:'coins', val:500 },                  premium:{ type:'item',  val:'cosmos' } },
+  { level:10, xpReq:15000,free:{ type:'coins', val:1000 },                 premium:{ type:'coins', val:2000 } },
+];
+
+let seasonInfo = null;
+
+async function loadSeasonInfo() {
+  try {
+    const res = await fetch('/api/season/info', { credentials:'include' });
+    seasonInfo = await res.json();
+    renderSeasonWidget();
+  } catch(e) {}
+}
+
+function renderSeasonWidget() {
+  const el = document.getElementById('seasonWidget'); if (!el || !seasonInfo) return;
+  const s = seasonInfo.season;
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:28px">${s.icon}</span>
+      <div>
+        <div style="font-weight:800;font-size:15px" style="color:${s.color}">${s.icon} ${s.name}</div>
+        <div style="font-size:12px;color:var(--sub)">⏳ ${seasonInfo.daysLeft} днів до кінця</div>
+        <div style="font-size:12px;color:var(--sub)">⚡ ${(seasonInfo.season_xp||0).toLocaleString()} XP цього сезону</div>
+      </div>
+    </div>
+    <div style="margin-top:10px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--sub);margin-bottom:4px">
+        <span>Сезон пропуск</span>
+        <span>${getSeasonLevel(seasonInfo.season_xp)} / ${SEASON_PASS_LEVELS.length} рівень</span>
+      </div>
+      <div style="height:6px;background:var(--bg4);border-radius:3px;overflow:hidden">
+        <div style="height:100%;background:linear-gradient(90deg,${s.color},var(--green));border-radius:3px;width:${getSeasonPct(seasonInfo.season_xp)}%;transition:width .4s"></div>
+      </div>
+    </div>
+    <button onclick="showPage('season')" style="width:100%;margin-top:8px;padding:6px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:12px;cursor:pointer">🎁 Відкрити пропуск</button>
+  `;
+}
+
+function getSeasonLevel(xp) {
+  let lvl = 0;
+  for (const tier of SEASON_PASS_LEVELS) { if ((xp||0) >= tier.xpReq) lvl = tier.level; }
+  return lvl;
+}
+function getSeasonPct(xp) {
+  const lvl = getSeasonLevel(xp);
+  const cur = SEASON_PASS_LEVELS[lvl-1];
+  const next = SEASON_PASS_LEVELS[lvl];
+  if (!next) return 100;
+  const base = cur ? cur.xpReq : 0;
+  return Math.min(100, Math.round(((xp-base) / (next.xpReq - base)) * 100));
+}
+
+function rewardLabel(r) {
+  if (r.type === 'coins') return `🪙 ${r.val}`;
+  if (r.type === 'item' && ITEMS[r.val]) return `${ITEMS[r.val].icon} ${iName(ITEMS[r.val])}`;
+  return r.val;
+}
+
+async function renderSeasonPass() {
+  const el = document.getElementById('seasonContent'); if (!el) return;
+  await loadSeasonInfo();
+  if (!seasonInfo) { el.innerHTML = '<div style="color:var(--sub);text-align:center;padding:30px">Завантаження...</div>'; return; }
+  const s = seasonInfo.season;
+  const sxp = seasonInfo.season_xp || 0;
+  const claimed = seasonInfo.season_claimed || [];
+  const hasPass = !!seasonInfo.season_pass;
+  const curLvl = getSeasonLevel(sxp);
+
+  el.innerHTML = `
+    <div class="season-hero" style="background:linear-gradient(135deg,${s.color}22,var(--bg2));border:1px solid ${s.color}44;border-radius:var(--r2);padding:20px;margin-bottom:16px;text-align:center">
+      <div style="font-size:48px">${s.icon}</div>
+      <div style="font-size:20px;font-weight:900">Сезон: ${s.name}</div>
+      <div style="color:var(--sub);font-size:14px">⏳ ${seasonInfo.daysLeft} днів залишилось</div>
+      <div style="margin-top:10px;font-size:16px;font-weight:700">⚡ ${sxp.toLocaleString()} / ${SEASON_PASS_LEVELS[SEASON_PASS_LEVELS.length-1].xpReq.toLocaleString()} XP</div>
+    </div>
+
+    ${!hasPass ? `<div style="background:linear-gradient(135deg,var(--gold)22,var(--bg2));border:1px solid var(--gold)44;border-radius:var(--r2);padding:16px;margin-bottom:16px;text-align:center">
+      <div style="font-size:22px;font-weight:900">👑 Преміум пропуск</div>
+      <div style="color:var(--sub);font-size:13px;margin:6px 0 12px">Розблокуй всі нагороди преміум доріжки</div>
+      <button onclick="buySeasonPass()" style="padding:10px 24px;border-radius:var(--r);background:linear-gradient(135deg,var(--gold),#cc8800);color:#000;font-weight:900;font-size:14px;cursor:pointer">🪙 Купити за 199 монет</button>
+    </div>` : `<div style="background:rgba(63,185,80,.1);border:1px solid var(--green);border-radius:var(--r);padding:12px;text-align:center;margin-bottom:16px;font-weight:700;color:var(--green)">👑 Преміум пропуск активовано!</div>`}
+
+    <div style="display:flex;flex-direction:column;gap:10px">
+      ${SEASON_PASS_LEVELS.map(tier => {
+        const unlocked = sxp >= tier.xpReq;
+        const freeClaimed = claimed.includes(`f${tier.level}`);
+        const premClaimed = claimed.includes(`p${tier.level}`);
+        return `<div class="season-tier${unlocked?' season-tier-unlocked':''}">
+          <div class="season-tier-level" style="color:${unlocked?s.color:'var(--sub)'}">${tier.level}</div>
+          <div class="season-tier-xp">${tier.xpReq === 0 ? 'Старт' : tier.xpReq.toLocaleString()+' XP'}</div>
+          <div class="season-tier-rewards">
+            <div class="season-reward${unlocked&&!freeClaimed?' clickable':''}${freeClaimed?' claimed':''}" onclick="${unlocked&&!freeClaimed?`claimSeason('f${tier.level}','${tier.free.type}','${tier.free.val}')`:''}" title="Безкоштовна нагорода">
+              ${freeClaimed?'✅':rewardLabel(tier.free)}
+            </div>
+            <div class="season-reward premium-reward${unlocked&&hasPass&&!premClaimed?' clickable':''}${premClaimed?' claimed':''}${!hasPass?' locked':''}" onclick="${unlocked&&hasPass&&!premClaimed?`claimSeason('p${tier.level}','${tier.premium.type}','${tier.premium.val}')`:''}" title="Преміум нагорода">
+              ${premClaimed?'✅':!hasPass?'🔒':rewardLabel(tier.premium)}
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+async function claimSeason(key, type, val) {
+  if (!seasonInfo) return;
+  try {
+    const level = parseInt(key.slice(1));
+    const res = await fetch('/api/season/claim', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ level: key }) });
+    const data = await res.json();
+    if (data.error) { toast('Вже отримано!','warn'); return; }
+    seasonInfo.season_claimed = data.claimed;
+    // Give reward
+    if (type === 'coins') { S.coins += parseInt(val); toast(`🪙 +${val} монет!`,'ok'); }
+    else if (type === 'item' && ITEMS[val]) { addInv(val, 1); toast(`${ITEMS[val].icon} ${iName(ITEMS[val])}!`,'ok'); }
+    saveState(); updateHeader(); spawnParticles(10);
+    renderSeasonPass();
+  } catch(e) { toast('Помилка','err'); }
+}
+
+async function buySeasonPass() {
+  try {
+    const res = await fetch('/api/season/buy-pass', { method:'POST', credentials:'include' });
+    const data = await res.json();
+    if (data.error === 'not_enough_coins') { toast('Недостатньо монет!','warn'); return; }
+    if (data.error === 'already_bought') { toast('Вже куплено!','warn'); return; }
+    S.coins -= 199; seasonInfo.season_pass = 1;
+    saveState(); updateHeader(); toast('👑 Преміум пропуск активовано!','ok'); spawnParticles(20);
+    renderSeasonPass();
+  } catch(e) { toast('Помилка','err'); }
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  STREAK MILESTONES
 // ═══════════════════════════════════════════════════════════════
 const STREAK_MILESTONES = { 3:30, 7:100, 14:200, 30:500, 60:1000, 100:2000 };
@@ -667,6 +812,7 @@ function initApp() {
   renderTasks();
   renderGenLimit();
   applyI18n();
+  loadSeasonInfo();
   // Give starter inventory if empty
   if (!Object.keys(S.inventory).length) {
     addInv('energy',2); addInv('scroll',1); addInv('clover',1);
@@ -705,7 +851,7 @@ function showPage(name) {
     premium: renderPremium, settings: renderSettings,
     referral: renderReferral, achievements: renderAchievements,
     challenges: renderDailyChallenges, wheel: renderWheel,
-    quests: renderQuests,
+    quests: renderQuests, season: renderSeasonPass,
   };
   if (renders[name]) renders[name]();
 }
@@ -1311,7 +1457,26 @@ function renderLeaderboard(tab) {
   const tabsHtml=`<div class="lb-tabs">
     <button class="lb-tab${lbTab==='all'?' active':''}" onclick="renderLeaderboard('all')">🏆 Загальний</button>
     <button class="lb-tab${lbTab==='weekly'?' active':''}" onclick="renderLeaderboard('weekly')">📅 Тижневий</button>
+    <button class="lb-tab${lbTab==='season'?' active':''}" onclick="renderLeaderboard('season')">🌸 Сезон</button>
   </div>`;
+  if(lbTab==='season'){
+    el.innerHTML=tabsHtml+`<div style="text-align:center;padding:20px;color:var(--sub)">⏳ Завантаження...</div>`;
+    fetch('/api/leaderboard/season',{credentials:'include'}).then(r=>r.json()).then(data=>{
+      const PRIZES={0:'🥇 Ексклюзивний предмет',1:'🥈 +500🪙',2:'🥉 +200🪙'};
+      const rankClass=(i)=>i===0?'g':i===1?'s':i===2?'b':'';
+      el.innerHTML=tabsHtml+`<div style="font-size:12px;color:var(--sub);margin-bottom:12px">🎁 Топ-3 отримають нагороди в кінці сезону</div>`
+        +data.map((e,i)=>`<div class="lb-item${e.isMe?' me':''}">
+          <div class="lb-rank ${rankClass(i)}">${i+1}</div>
+          <div class="lb-av">${e.avatar||'🌿'}</div>
+          <div class="lb-info">
+            <div class="lb-name">${e.name}${e.isMe?' <span style="color:var(--green)">(Ти)</span>':''}</div>
+            <div class="lb-level">Lv.${e.level} ${PRIZES[i]||''}</div>
+          </div>
+          <div class="lb-score">${(e.season_xp||0).toLocaleString()} XP сезону</div>
+        </div>`).join('');
+    }).catch(()=>{ el.innerHTML=tabsHtml+'<div style="color:var(--sub);padding:20px;text-align:center">Помилка</div>'; });
+    return;
+  }
   if(lbTab==='weekly'){
     el.innerHTML=tabsHtml+`<div style="text-align:center;padding:20px;color:var(--sub)">⏳ Завантаження...</div>`;
     fetch('/api/leaderboard/weekly',{credentials:'include'}).then(r=>r.json()).then(data=>{
@@ -1890,6 +2055,8 @@ function renderSidebar() {
     if(!S.activeBuffs.length) bl.innerHTML=`<div style="font-size:12px;color:var(--sub);text-align:center;padding:10px">${currentLang==='ua'?'Немає активних бафів':currentLang==='en'?'No active buffs':'Aucun buff actif'}</div>`;
     else bl.innerHTML=S.activeBuffs.map(b=>`<div class="buff-chip" style="border-color:${b.color}22"><span>${b.icon}</span><span style="color:${b.color}">${b.label}</span><span style="color:var(--sub);font-size:11px">${b.uses}x</span></div>`).join('');
   }
+  // Season widget
+  const sw2=document.getElementById('seasonWidget'); if(sw2&&seasonInfo) renderSeasonWidget();
   // Daily task widget
   const dw=document.getElementById('dailyWidget'); if(dw){
     const dailyDone=S.tasks.filter(x=>x.completed).length;

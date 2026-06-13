@@ -95,6 +95,9 @@ db.exec(`
 try { db.exec(`ALTER TABLE users ADD COLUMN active_theme TEXT DEFAULT 'dark'`); } catch(e){}
 try { db.exec(`ALTER TABLE users ADD COLUMN weekly_xp INTEGER DEFAULT 0`); } catch(e){}
 try { db.exec(`ALTER TABLE users ADD COLUMN weekly_reset TEXT DEFAULT ''`); } catch(e){}
+try { db.exec(`ALTER TABLE users ADD COLUMN season_xp INTEGER DEFAULT 0`); } catch(e){}
+try { db.exec(`ALTER TABLE users ADD COLUMN season_pass INTEGER DEFAULT 0`); } catch(e){}
+try { db.exec(`ALTER TABLE users ADD COLUMN season_claimed TEXT DEFAULT '[]'`); } catch(e){}
 
 // ── HELPERS ───────────────────────────────────────────────
 function genCode() {
@@ -245,8 +248,8 @@ app.post('/api/tasks/complete', auth, (req, res) => {
   let newLevel = user.level;
   const xpNeeded = (l) => l * 100 + (l - 1) * 50;
   while (newXP >= xpNeeded(newLevel)) { newXP -= xpNeeded(newLevel); newLevel++; }
-  db.prepare('UPDATE users SET coins = coins + ?, xp = ?, level = ?, weekly_xp = weekly_xp + ? WHERE id = ?')
-    .run(coins_earned, newXP, newLevel, xp_earned, req.user.id);
+  db.prepare('UPDATE users SET coins = coins + ?, xp = ?, level = ?, weekly_xp = weekly_xp + ?, season_xp = season_xp + ? WHERE id = ?')
+    .run(coins_earned, newXP, newLevel, xp_earned, xp_earned, req.user.id);
   // History
   db.prepare(`INSERT INTO history (user_id, icon, title, type, diff, coins, xp, item_name)
     VALUES (?,?,?,?,?,?,?,?)`).run(req.user.id, icon, title, type, diff, coins_earned, xp_earned, item_name || null);
@@ -364,6 +367,70 @@ app.post('/api/shop/buy', auth, (req, res) => {
   if (existing) db.prepare('UPDATE inventory SET count = count + 1 WHERE user_id = ? AND item_id = ?').run(req.user.id, item_id);
   else db.prepare('INSERT INTO inventory (user_id, item_id, count) VALUES (?,?,1)').run(req.user.id, item_id);
   res.json({ ok: true, newCoins: user.coins - price });
+});
+
+// ── SEASON ────────────────────────────────────────────────
+function getCurrentSeason() {
+  const m = new Date().getMonth(); // 0-11
+  if (m >= 2 && m <= 4) return { id:'spring', name:'Весна', icon:'🌸', color:'#f788c0' };
+  if (m >= 5 && m <= 7) return { id:'summer', name:'Літо',  icon:'☀️', color:'#f0c674' };
+  if (m >= 8 && m <= 10) return { id:'autumn', name:'Осінь', icon:'🍂', color:'#ff9100' };
+  return { id:'winter', name:'Зима', icon:'❄️', color:'#58a6ff' };
+}
+function getSeasonEnd() {
+  const now = new Date();
+  const m = now.getMonth();
+  let endMonth;
+  if (m >= 2 && m <= 4) endMonth = 5;
+  else if (m >= 5 && m <= 7) endMonth = 8;
+  else if (m >= 8 && m <= 10) endMonth = 11;
+  else endMonth = m < 2 ? 2 : 14;
+  const end = new Date(now.getFullYear(), endMonth, 1);
+  return Math.ceil((end - now) / 86400000);
+}
+
+app.get('/api/season/info', auth, (req, res) => {
+  const season = getCurrentSeason();
+  const daysLeft = getSeasonEnd();
+  // Reset season_xp if season changed
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+  res.json({
+    season,
+    daysLeft,
+    season_xp: user.season_xp || 0,
+    season_pass: user.season_pass || 0,
+    season_claimed: JSON.parse(user.season_claimed || '[]'),
+  });
+});
+
+app.post('/api/season/claim', auth, (req, res) => {
+  const { level } = req.body;
+  if (typeof level !== 'number') return res.status(400).json({ error: 'invalid' });
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+  const claimed = JSON.parse(user.season_claimed || '[]');
+  if (claimed.includes(level)) return res.status(400).json({ error: 'already_claimed' });
+  claimed.push(level);
+  db.prepare('UPDATE users SET season_claimed = ? WHERE id = ?').run(JSON.stringify(claimed), req.user.id);
+  res.json({ ok: true, claimed });
+});
+
+app.post('/api/season/buy-pass', auth, (req, res) => {
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+  if (user.season_pass) return res.status(400).json({ error: 'already_bought' });
+  if (user.coins < 199) return res.status(400).json({ error: 'not_enough_coins' });
+  db.prepare('UPDATE users SET season_pass = 1, coins = coins - 199 WHERE id = ?').run(req.user.id);
+  res.json({ ok: true });
+});
+
+app.get('/api/leaderboard/season', auth, (req, res) => {
+  const me = db.prepare('SELECT id, name, avatar, level, season_xp, code FROM users WHERE id = ?').get(req.user.id);
+  const friends = db.prepare(`
+    SELECT u.id, u.name, u.avatar, u.level, u.season_xp, u.code
+    FROM friends f JOIN users u ON f.friend_id = u.id
+    WHERE f.user_id = ?`).all(req.user.id);
+  const all = [{ ...me, isMe: true }, ...friends.map(f => ({ ...f, isMe: false }))];
+  all.sort((a, b) => b.season_xp - a.season_xp);
+  res.json(all);
 });
 
 // ── THEME ─────────────────────────────────────────────────

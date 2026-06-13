@@ -135,6 +135,10 @@
       <div class="nav-item" onclick="showPage('quests')" data-page="quests">
         <span class="nav-icon">🎯</span><span>Квести</span>
       </div>
+      <div class="nav-item" onclick="showPage('season')" data-page="season">
+        <span class="nav-icon">🌸</span><span>Сезон</span>
+        <span class="nav-crown">NEW</span>
+      </div>
       <div class="nav-item" onclick="showPage('challenges')" data-page="challenges">
         <span class="nav-icon">👾</span><span>Челенджі</span>
         <span class="nav-badge" id="challengeBadge"></span>
@@ -286,6 +290,13 @@
         <div id="historyList"></div>
       </div>
 
+      <!-- PAGE: SEASON -->
+      <div class="page" id="page-season">
+        <div class="page-title">🌸 Сезонний пропуск</div>
+        <div class="page-sub">Заробляй XP — отримуй ексклюзивні нагороди сезону</div>
+        <div id="seasonContent" style="margin-top:16px"></div>
+      </div>
+
       <!-- PAGE: QUESTS -->
       <div class="page" id="page-quests">
         <div class="page-title">🎯 Квести</div>
@@ -352,6 +363,10 @@
       <div class="widget">
         <div class="widget-title" data-i18n="widget.profile">Профіль</div>
         <div class="profile-widget" id="profileWidget"></div>
+      </div>
+      <div class="widget">
+        <div class="widget-title">🌸 Сезон</div>
+        <div id="seasonWidget"><div style="color:var(--sub);font-size:13px;text-align:center;padding:10px">Завантаження...</div></div>
       </div>
       <div class="widget">
         <div class="widget-title" data-i18n="widget.streak">Серія 🔥</div>
