@@ -24,18 +24,21 @@ console.log('DB opened at:', dbPath);
 // ── DB SETUP ──────────────────────────────────────────────
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    google_id   TEXT UNIQUE,
-    name        TEXT,
-    email       TEXT UNIQUE,
-    avatar      TEXT DEFAULT '🌿',
-    code        TEXT UNIQUE,
-    coins       INTEGER DEFAULT 150,
-    xp          INTEGER DEFAULT 0,
-    level       INTEGER DEFAULT 1,
-    streak      INTEGER DEFAULT 0,
-    premium     INTEGER DEFAULT 0,
-    created_at  TEXT DEFAULT (datetime('now'))
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    google_id    TEXT UNIQUE,
+    name         TEXT,
+    email        TEXT UNIQUE,
+    avatar       TEXT DEFAULT '🌿',
+    code         TEXT UNIQUE,
+    coins        INTEGER DEFAULT 150,
+    xp           INTEGER DEFAULT 0,
+    level        INTEGER DEFAULT 1,
+    streak       INTEGER DEFAULT 0,
+    premium      INTEGER DEFAULT 0,
+    active_theme TEXT DEFAULT 'dark',
+    weekly_xp    INTEGER DEFAULT 0,
+    weekly_reset TEXT DEFAULT '',
+    created_at   TEXT DEFAULT (datetime('now'))
   );
   CREATE TABLE IF NOT EXISTS inventory (
     id       INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -87,6 +90,11 @@ db.exec(`
     FOREIGN KEY(user_id) REFERENCES users(id)
   );
 `);
+
+// Migrate existing DBs
+try { db.exec(`ALTER TABLE users ADD COLUMN active_theme TEXT DEFAULT 'dark'`); } catch(e){}
+try { db.exec(`ALTER TABLE users ADD COLUMN weekly_xp INTEGER DEFAULT 0`); } catch(e){}
+try { db.exec(`ALTER TABLE users ADD COLUMN weekly_reset TEXT DEFAULT ''`); } catch(e){}
 
 // ── HELPERS ───────────────────────────────────────────────
 function genCode() {
@@ -195,7 +203,7 @@ app.get('/auth/me', (req, res) => {
   // Статистика рефералів
   const referrals = db.prepare('SELECT COUNT(*) as cnt FROM referrals WHERE referrer_id = ?').get(req.user.id);
   const refCount = referrals ? referrals.cnt : 0;
-  res.json({ user: { ...req.user, inventory, refCount } });
+  res.json({ user: { ...req.user, inventory, refCount, active_theme: req.user.active_theme || 'dark' } });
 });
 
 // ── USER API ──────────────────────────────────────────────
@@ -237,8 +245,8 @@ app.post('/api/tasks/complete', auth, (req, res) => {
   let newLevel = user.level;
   const xpNeeded = (l) => l * 100 + (l - 1) * 50;
   while (newXP >= xpNeeded(newLevel)) { newXP -= xpNeeded(newLevel); newLevel++; }
-  db.prepare('UPDATE users SET coins = coins + ?, xp = ?, level = ? WHERE id = ?')
-    .run(coins_earned, newXP, newLevel, req.user.id);
+  db.prepare('UPDATE users SET coins = coins + ?, xp = ?, level = ?, weekly_xp = weekly_xp + ? WHERE id = ?')
+    .run(coins_earned, newXP, newLevel, xp_earned, req.user.id);
   // History
   db.prepare(`INSERT INTO history (user_id, icon, title, type, diff, coins, xp, item_name)
     VALUES (?,?,?,?,?,?,?,?)`).run(req.user.id, icon, title, type, diff, coins_earned, xp_earned, item_name || null);
@@ -356,6 +364,36 @@ app.post('/api/shop/buy', auth, (req, res) => {
   if (existing) db.prepare('UPDATE inventory SET count = count + 1 WHERE user_id = ? AND item_id = ?').run(req.user.id, item_id);
   else db.prepare('INSERT INTO inventory (user_id, item_id, count) VALUES (?,?,1)').run(req.user.id, item_id);
   res.json({ ok: true, newCoins: user.coins - price });
+});
+
+// ── THEME ─────────────────────────────────────────────────
+app.post('/api/user/theme', auth, (req, res) => {
+  const { theme } = req.body;
+  if (!['dark','ocean','forest','sunset','galaxy'].includes(theme))
+    return res.status(400).json({ error: 'invalid' });
+  db.prepare('UPDATE users SET active_theme = ? WHERE id = ?').run(theme, req.user.id);
+  res.json({ ok: true });
+});
+
+// ── WEEKLY LEADERBOARD ────────────────────────────────────
+function getWeekStart() {
+  const d = new Date();
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  return new Date(new Date().setDate(diff)).toISOString().slice(0, 10);
+}
+
+app.get('/api/leaderboard/weekly', auth, (req, res) => {
+  const weekStart = getWeekStart();
+  db.prepare(`UPDATE users SET weekly_xp = 0, weekly_reset = ? WHERE weekly_reset != ?`).run(weekStart, weekStart);
+  const me = db.prepare('SELECT id, name, avatar, level, weekly_xp, code FROM users WHERE id = ?').get(req.user.id);
+  const friends = db.prepare(`
+    SELECT u.id, u.name, u.avatar, u.level, u.weekly_xp, u.code
+    FROM friends f JOIN users u ON f.friend_id = u.id
+    WHERE f.user_id = ?`).all(req.user.id);
+  const all = [{ ...me, isMe: true }, ...friends.map(f => ({ ...f, isMe: false }))];
+  all.sort((a, b) => b.weekly_xp - a.weekly_xp);
+  res.json(all);
 });
 
 // ── WAYFORPAY ─────────────────────────────────────────────

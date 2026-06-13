@@ -132,6 +132,9 @@
       <div class="nav-item" onclick="showPage('achievements')" data-page="achievements">
         <span class="nav-icon">🏆</span><span>Досягнення</span>
       </div>
+      <div class="nav-item" onclick="showPage('quests')" data-page="quests">
+        <span class="nav-icon">🎯</span><span>Квести</span>
+      </div>
       <div class="nav-item" onclick="showPage('challenges')" data-page="challenges">
         <span class="nav-icon">👾</span><span>Челенджі</span>
         <span class="nav-badge" id="challengeBadge"></span>
@@ -281,6 +284,13 @@
         <div class="stats-grid" id="statsGrid"></div>
         <div class="section-title" data-i18n="stats.history">📜 Історія</div>
         <div id="historyList"></div>
+      </div>
+
+      <!-- PAGE: QUESTS -->
+      <div class="page" id="page-quests">
+        <div class="page-title">🎯 Квести</div>
+        <div class="page-sub">Виконуй ланцюжки завдань — отримуй великі нагороди</div>
+        <div id="questsContent" style="margin-top:16px"></div>
       </div>
 
       <!-- PAGE: ACHIEVEMENTS -->

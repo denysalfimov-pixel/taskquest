@@ -278,6 +278,9 @@ const ITEMS = {
   // ── MYTHIC ────────────────────────────────────────────
   void:     { id:'void',     icon:'🌑', name:{ua:'Осколок Пустки',en:'Void Shard',fr:'Éclat du Vide'}, desc:{ua:'×5 монет та XP за наступне завдання',en:'×5 coins and XP for next task',fr:'×5 pièces et XP pour la prochaine tâche'}, rarity:'mythic',   price:500, maxStock:1, effect:'void5',   buffLabel:'VOID ×5',      buffColor:'#cc00ff' },
   cosmos:   { id:'cosmos',   icon:'🌌', name:{ua:'Космічний артефакт',en:'Cosmic Artifact',fr:'Artefact cosmique'}, desc:{ua:'Миттєво отримати 1000 XP',en:'Instantly gain 1000 XP',fr:'Gagner instantanément 1000 XP'}, rarity:'mythic',   price:600, maxStock:1, effect:'xp1000',  buffLabel:'1000 XP',      buffColor:'#cc00ff' },
+  // ── BOOSTERS (rare) ───────────────────────────────────
+  xpbooster:{ id:'xpbooster',icon:'🔋', name:{ua:'XP Буст',en:'XP Booster',fr:'Boost XP'}, desc:{ua:'×2 XP на наступні 3 завдання',en:'×2 XP for next 3 tasks',fr:'×2 XP pour 3 prochaines tâches'}, rarity:'rare', price:90, maxStock:3, effect:'xp2', buffLabel:'XP ×2 (3 завд.)', buffColor:'#bc8cff', buffUses:3 },
+  coinboost:{ id:'coinboost',icon:'💰', name:{ua:'Монет Буст',en:'Coin Booster',fr:'Boost Pièces'}, desc:{ua:'×1.5 монет на наступні 3 завдання',en:'×1.5 coins for next 3 tasks',fr:'×1.5 pièces pour 3 tâches'}, rarity:'rare', price:75, maxStock:3, effect:'coin50', buffLabel:'Монети ×1.5 (3)', buffColor:'#f0c674', buffUses:3 },
 };
 const RARITY = {
   common:   {ua:'Звичайний',   en:'Common',    fr:'Commun'},
@@ -288,6 +291,156 @@ const RARITY = {
 };
 function iName(item) { return item.name[currentLang] || item.name.ua; }
 function iDesc(item)  { return item.desc[currentLang] || item.desc.ua; }
+
+// ═══════════════════════════════════════════════════════════════
+//  THEMES
+// ═══════════════════════════════════════════════════════════════
+const THEMES = {
+  dark:   { label:'🌑 Dark',    vars:{} },
+  ocean:  { label:'🌊 Ocean',   vars:{ '--bg':'#040d18','--bg2':'#071525','--bg3':'#0a1d33','--bg4':'#0e2542','--border':'#163452','--border2':'#1e4570','--text':'#cce8ff','--sub':'#6aa3cc','--sub2':'#4a7a99','--green':'#00b4ff','--blue':'#00d4ff','--purple':'#7b68ee' } },
+  forest: { label:'🌿 Forest',  vars:{ '--bg':'#060f06','--bg2':'#0b1a0b','--bg3':'#0f230f','--bg4':'#132e13','--border':'#1a3d1a','--border2':'#225022','--text':'#d0f0d0','--sub':'#6aac6a','--sub2':'#4a884a','--green':'#4ade80','--blue':'#34d399','--purple':'#a78bfa' } },
+  sunset: { label:'🌅 Sunset',  vars:{ '--bg':'#130800','--bg2':'#1f0d00','--bg3':'#2a1200','--bg4':'#361800','--border':'#4d2200','--border2':'#663000','--text':'#ffe8cc','--sub':'#cc8855','--sub2':'#aa6633','--green':'#ff6b35','--blue':'#fbbf24','--purple':'#f472b6' } },
+  galaxy: { label:'🌌 Galaxy',  vars:{ '--bg':'#04001a','--bg2':'#07002a','--bg3':'#0b003a','--bg4':'#0f004a','--border':'#1a0066','--border2':'#220088','--text':'#e8d5ff','--sub':'#9966cc','--sub2':'#7744aa','--green':'#c084fc','--blue':'#818cf8','--purple':'#f472b6' } },
+};
+
+function applyTheme(id) {
+  S.activeTheme = id;
+  const theme = THEMES[id] || THEMES.dark;
+  const root = document.documentElement;
+  // Reset to defaults first
+  ['--bg','--bg2','--bg3','--bg4','--border','--border2','--text','--sub','--sub2','--green','--blue','--purple'].forEach(v => root.style.removeProperty(v));
+  Object.entries(theme.vars).forEach(([k,v]) => root.style.setProperty(k, v));
+  saveState();
+  fetch('/api/user/theme', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ theme: id }) }).catch(()=>{});
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  QUESTS
+// ═══════════════════════════════════════════════════════════════
+const QUEST_DEFS = [
+  { id:'q_starter', icon:'🚀', title:'Перший крок', steps:[
+    { need:1, type:'any', diff:'easy',   desc:'Виконай 1 легке завдання' },
+    { need:2, type:'any', diff:'medium', desc:'Виконай 2 середніх завдання' },
+    { need:1, type:'any', diff:'hard',   desc:'Виконай 1 важке завдання' },
+  ], reward:{ coins:250, xp:500, item:'stardust' } },
+  { id:'q_home', icon:'🏠', title:'Домашній майстер', steps:[
+    { need:3, type:'home', diff:'any', desc:'Виконай 3 домашніх завдання' },
+    { need:3, type:'home', diff:'any', desc:'Ще 3 домашніх завдання' },
+    { need:2, type:'home', diff:'hard', desc:'2 важких домашніх завдання' },
+  ], reward:{ coins:300, xp:600, item:'crystal' } },
+  { id:'q_outdoor', icon:'🌳', title:'Природний герой', steps:[
+    { need:2, type:'outdoor', diff:'any',       desc:'2 завдання на вулиці' },
+    { need:3, type:'outdoor', diff:'any',       desc:'Ще 3 на вулиці' },
+    { need:1, type:'outdoor', diff:'legendary', desc:'1 легендарне завдання' },
+  ], reward:{ coins:400, xp:800, item:'dragon' } },
+  { id:'q_grind', icon:'💪', title:'Трудяга', steps:[
+    { need:5,  type:'any', diff:'any', desc:'Виконай 5 будь-яких завдань' },
+    { need:10, type:'any', diff:'any', desc:'Виконай ще 10 завдань' },
+    { need:15, type:'any', diff:'any', desc:'Виконай ще 15 завдань' },
+  ], reward:{ coins:500, xp:1000, item:'phoenix' } },
+];
+
+function initQuests() {
+  if (!S.quests) S.quests = {};
+  QUEST_DEFS.forEach(q => { if (!S.quests[q.id]) S.quests[q.id] = { step:0, progress:0, done:false }; });
+}
+
+function updateQuestProgress(type, diff) {
+  initQuests();
+  QUEST_DEFS.forEach(qDef => {
+    const qs = S.quests[qDef.id];
+    if (!qs || qs.done) return;
+    const step = qDef.steps[qs.step];
+    if (!step) return;
+    const typeOk = step.type === 'any' || step.type === type;
+    const diffOk = step.diff === 'any' || step.diff === diff;
+    if (!typeOk || !diffOk) return;
+    qs.progress++;
+    if (qs.progress >= step.need) {
+      qs.step++; qs.progress = 0;
+      if (qs.step >= qDef.steps.length) {
+        qs.done = true;
+        claimQuestReward(qDef);
+      } else {
+        toast(`🎯 Крок ${qs.step} / ${qDef.steps.length} квесту "${qDef.title}"!`, 'ok');
+      }
+    }
+  });
+}
+
+function claimQuestReward(qDef) {
+  const r = qDef.reward;
+  S.coins += r.coins; addXP(r.xp);
+  if (r.item && ITEMS[r.item]) addInv(r.item, 1);
+  updateHeader(); spawnParticles(20);
+  setTimeout(() => {
+    const o = document.createElement('div'); o.className = 'easter-overlay';
+    o.innerHTML = `<div class="easter-card">
+      <span class="easter-emoji">${qDef.icon}</span>
+      <div class="easter-title">КВЕСТ ВИКОНАНО!</div>
+      <div style="color:var(--sub);font-size:14px;margin-bottom:20px">"${qDef.title}"</div>
+      <div style="background:var(--bg3);border-radius:var(--r);padding:14px;margin-bottom:16px">
+        <div style="font-size:18px;font-weight:900;color:var(--gold)">🪙 +${r.coins} монет</div>
+        <div style="font-size:18px;font-weight:900;color:var(--purple)">⚡ +${r.xp} XP</div>
+        ${r.item&&ITEMS[r.item]?`<div style="font-size:18px;font-weight:900">${ITEMS[r.item].icon} ${iName(ITEMS[r.item])}</div>`:''}
+      </div>
+      <button onclick="this.closest('.easter-overlay').remove()" style="padding:12px 28px;border-radius:var(--r);background:linear-gradient(135deg,var(--green),#2ea843);color:#000;font-weight:900;font-size:15px">🎉 Чудово!</button>
+    </div>`;
+    document.body.appendChild(o);
+  }, 1000);
+}
+
+function renderQuests() {
+  const el = document.getElementById('questsContent'); if (!el) return;
+  initQuests();
+  el.innerHTML = QUEST_DEFS.map(qDef => {
+    const qs = S.quests[qDef.id];
+    const si = Math.min(qs.step, qDef.steps.length - 1);
+    const cur = qDef.steps[si];
+    const pct = qs.done ? 100 : Math.round((qs.progress / cur.need) * 100);
+    const r = qDef.reward;
+    return `<div class="quest-card${qs.done?' quest-done':''}">
+      <div class="quest-header">
+        <span class="quest-icon">${qDef.icon}</span>
+        <div style="flex:1">
+          <div class="quest-title">${qDef.title}</div>
+          <div class="quest-sub">${qs.done ? '✅ Виконано!' : `Крок ${Math.min(qs.step+1, qDef.steps.length)} / ${qDef.steps.length}`}</div>
+        </div>
+        <div class="quest-reward">+${r.coins}🪙 ${r.item&&ITEMS[r.item]?ITEMS[r.item].icon:''}</div>
+      </div>
+      ${!qs.done ? `
+        <div class="quest-step-desc">${cur.desc}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+          <div class="quest-bar"><div class="quest-fill" style="width:${pct}%"></div></div>
+          <span style="font-size:13px;color:var(--sub);white-space:nowrap">${qs.progress}/${cur.need}</span>
+        </div>
+      ` : `<div style="font-size:13px;color:var(--sub);margin-top:6px">Нагороду отримано ✨</div>`}
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  STREAK MILESTONES
+// ═══════════════════════════════════════════════════════════════
+const STREAK_MILESTONES = { 3:30, 7:100, 14:200, 30:500, 60:1000, 100:2000 };
+function checkStreakMilestone(streak) {
+  const bonus = STREAK_MILESTONES[streak];
+  if (!bonus) return;
+  S.coins += bonus; updateHeader();
+  setTimeout(() => {
+    const o = document.createElement('div'); o.className = 'easter-overlay';
+    o.innerHTML = `<div class="easter-card">
+      <span class="easter-emoji">🔥</span>
+      <div class="easter-title">${streak} ДНІВ ПОСПІЛЬ!</div>
+      <div style="color:var(--sub);font-size:14px;margin-bottom:20px">Неймовірна серія! Тримай бонус!</div>
+      <div style="background:var(--bg3);border-radius:var(--r);padding:14px;margin-bottom:16px">
+        <div style="font-size:22px;font-weight:900;color:var(--gold)">🪙 +${bonus} монет</div>
+      </div>
+      <button onclick="this.closest('.easter-overlay').remove()" style="padding:12px 28px;border-radius:var(--r);background:linear-gradient(135deg,var(--orange),#ff4500);color:#fff;font-weight:900;font-size:15px">🔥 Чудово!</button>
+    </div>`;
+    document.body.appendChild(o);
+  }, 2000);
+}
 
 // ═══════════════════════════════════════════════════════════════
 //  TASK GENERATION — procedural variety
@@ -381,17 +534,15 @@ let S = {
   friends: [], friendInvs: {}, history: [],
   settings: { notifTasks:true, notifFriends:true, sound:true, showInLB:true },
   premium: false,
+  activeTheme: 'dark',
   dailyGenerations: 0, dailyGenerationsDate: '',
   shopStock: {}, shopStockDate: '',
   recentTaskKeys: [],
-  achievements: {},       // id → { unlocked, claimed, progress }
-  dailyChallenges: [],    // [{id,title,icon,goal,current,reward,type}]
-  dailyChallengesDate: '',
-  wheelSpinDate: '',      // дата останнього кручення колеса
-  wheelSpinsLeft: 1,      // безкоштовних кручень (1/день, premium=3)
-  totalTasksDone: 0,      // лічильник для досягнень
-  totalCoinsEarned: 0,
-  totalLegendary: 0,
+  achievements: {},
+  dailyChallenges: [], dailyChallengesDate: '',
+  wheelSpinDate: '', wheelSpinsLeft: 1,
+  totalTasksDone: 0, totalCoinsEarned: 0, totalLegendary: 0,
+  quests: {},
 };
 
 const SAVE_KEY = 'tq_save_v2';
@@ -554,6 +705,7 @@ function showPage(name) {
     premium: renderPremium, settings: renderSettings,
     referral: renderReferral, achievements: renderAchievements,
     challenges: renderDailyChallenges, wheel: renderWheel,
+    quests: renderQuests,
   };
   if (renders[name]) renders[name]();
 }
@@ -792,7 +944,10 @@ function completeTask(task) {
     const yStr = yesterday.toISOString().slice(0,10);
     S.streak = (S.lastTaskDate===yStr) ? S.streak+1 : 1;
     S.lastTaskDate = today;
+    checkStreakMilestone(S.streak);
   }
+  // Quests
+  updateQuestProgress(task.type, task.diff);
   // Item drop
   let dropped = null;
   if (Math.random()<task.itemChance) {
@@ -959,7 +1114,7 @@ function confirmUse() {
 // ═══════════════════════════════════════════════════════════════
 function activateBuff(it) {
   S.activeBuffs=S.activeBuffs.filter(b=>b.effect!==it.effect);
-  S.activeBuffs.push({id:uid(),effect:it.effect,icon:it.icon,label:it.buffLabel,color:it.buffColor,uses:1});
+  S.activeBuffs.push({id:uid(),effect:it.effect,icon:it.icon,label:it.buffLabel,color:it.buffColor,uses:it.buffUses||1});
   renderSidebar();
 }
 function hasBuff(effect){ return S.activeBuffs.some(b=>b.effect===effect&&b.uses>0); }
@@ -1148,17 +1303,41 @@ function executeTrade() {
 // ═══════════════════════════════════════════════════════════════
 //  LEADERBOARD (no bots — only user + friends)
 // ═══════════════════════════════════════════════════════════════
-function renderLeaderboard() {
+let lbTab = 'all';
+function renderLeaderboard(tab) {
+  if(tab) lbTab = tab;
   const el=document.getElementById('lbContent'); if(!el)return;
+  if(!S.settings.showInLB){ el.innerHTML=`<div class="lb-tabs"></div><div class="lb-empty"><div class="lb-empty-icon">🔒</div><div class="lb-empty-title">Прихований профіль</div></div>`; return; }
+  const tabsHtml=`<div class="lb-tabs">
+    <button class="lb-tab${lbTab==='all'?' active':''}" onclick="renderLeaderboard('all')">🏆 Загальний</button>
+    <button class="lb-tab${lbTab==='weekly'?' active':''}" onclick="renderLeaderboard('weekly')">📅 Тижневий</button>
+  </div>`;
+  if(lbTab==='weekly'){
+    el.innerHTML=tabsHtml+`<div style="text-align:center;padding:20px;color:var(--sub)">⏳ Завантаження...</div>`;
+    fetch('/api/leaderboard/weekly',{credentials:'include'}).then(r=>r.json()).then(data=>{
+      const PRIZES={0:'🥇 +200🪙',1:'🥈 +100🪙',2:'🥉 +50🪙'};
+      const rankClass=(i)=>i===0?'g':i===1?'s':i===2?'b':'';
+      el.innerHTML=tabsHtml+`<div style="font-size:12px;color:var(--sub);margin-bottom:12px">🎁 Топ-3 отримають монети в кінці тижня</div>`
+        +data.map((e,i)=>`<div class="lb-item${e.isMe?' me':''}">
+          <div class="lb-rank ${rankClass(i)}">${i+1}</div>
+          <div class="lb-av">${e.avatar||'🌿'}</div>
+          <div class="lb-info">
+            <div class="lb-name">${e.name}${e.isMe?' <span style="color:var(--green)">(Ти)</span>':''}</div>
+            <div class="lb-level">Lv.${e.level} ${PRIZES[i]||''}</div>
+          </div>
+          <div class="lb-score">${(e.weekly_xp||0).toLocaleString()} XP цього тижня</div>
+        </div>`).join('');
+    }).catch(()=>{ el.innerHTML=tabsHtml+'<div style="color:var(--sub);padding:20px;text-align:center">Помилка завантаження</div>'; });
+    return;
+  }
   const me={ name:S.user?.name||'?', avatar:S.user?.avatar||'🌿', level:S.level, xp:S.xp+S.level*100, isMe:true };
-  if(!S.settings.showInLB){ el.innerHTML=`<div class="lb-empty"><div class="lb-empty-icon">🔒</div><div class="lb-empty-title">Прихований профіль</div></div>`; return; }
   const entries=[me,...S.friends.map(f=>({name:f.name,avatar:f.avatar,level:f.level,xp:f.xp,isMe:false}))];
   entries.sort((a,b)=>b.xp-a.xp);
   if(entries.length<=1&&!S.friends.length){
-    el.innerHTML=`<div class="lb-empty"><div class="lb-empty-icon">🏆</div><div class="lb-empty-title">${t('lb.onlyYou')}</div><div>${t('lb.emptyHint')}</div></div>`;return;
+    el.innerHTML=tabsHtml+`<div class="lb-empty"><div class="lb-empty-icon">🏆</div><div class="lb-empty-title">${t('lb.onlyYou')}</div><div>${t('lb.emptyHint')}</div></div>`;return;
   }
   const rankClass=(i)=>i===0?'g':i===1?'s':i===2?'b':'';
-  el.innerHTML=entries.map((e,i)=>`
+  el.innerHTML=tabsHtml+entries.map((e,i)=>`
     <div class="lb-item${e.isMe?' me':''}">
       <div class="lb-rank ${rankClass(i)}">${i+1}</div>
       <div class="lb-av">${e.avatar}</div>
@@ -1605,6 +1784,15 @@ function renderSettings() {
   const el=document.getElementById('settingsContent'); if(!el)return;
   el.innerHTML=`
   <div class="settings-section">
+    <h3>🎨 Тема інтерфейсу</h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+      ${Object.entries(THEMES).map(([id,th])=>`
+        <button onclick="applyTheme('${id}')" style="padding:8px 14px;border-radius:8px;border:2px solid ${(S.activeTheme||'dark')===id?'var(--green)':'var(--border)'};background:var(--bg3);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;transition:all .2s" id="theme-btn-${id}">
+          ${th.label}
+        </button>`).join('')}
+    </div>
+  </div>
+  <div class="settings-section">
     <h3>${t('settings.profile')}</h3>
     <div class="setting-row">
       <div><div class="setting-label">${S.user?.name||''}</div><div class="setting-sub">${S.user?.email||''} • ${S.user?.code||''}</div></div>
@@ -1856,7 +2044,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       }));
 
       S.user.refCount = data.user.refCount || 0;
+      // Restore theme
+      if (data.user.active_theme) { S.activeTheme = data.user.active_theme; applyTheme(S.activeTheme); }
       checkDailyReset();
+      initQuests();
       document.getElementById('authScreen').style.display = 'none';
       document.getElementById('appRoot').style.display = '';
       initApp();
