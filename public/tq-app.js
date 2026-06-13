@@ -372,7 +372,7 @@ function claimQuestReward(qDef) {
   const r = qDef.reward;
   S.coins += r.coins; addXP(r.xp);
   if (r.item && ITEMS[r.item]) addInv(r.item, 1);
-  updateHeader(); spawnParticles(20);
+  updateHeader(); spawnParticles(20); SFX.quest();
   setTimeout(() => {
     const o = document.createElement('div'); o.className = 'easter-overlay';
     o.innerHTML = `<div class="easter-card">
@@ -452,7 +452,7 @@ function renderSeasonWidget() {
     <div style="display:flex;align-items:center;gap:10px">
       <span style="font-size:28px">${s.icon}</span>
       <div>
-        <div style="font-weight:800;font-size:15px" style="color:${s.color}">${s.icon} ${s.name}</div>
+        <div style="font-weight:800;font-size:15px;color:${s.color}">${s.icon} ${s.name}</div>
         <div style="font-size:12px;color:var(--sub)">⏳ ${seasonInfo.daysLeft} днів до кінця</div>
         <div style="font-size:12px;color:var(--sub)">⚡ ${(seasonInfo.season_xp||0).toLocaleString()} XP цього сезону</div>
       </div>
@@ -571,7 +571,7 @@ const STREAK_MILESTONES = { 3:30, 7:100, 14:200, 30:500, 60:1000, 100:2000 };
 function checkStreakMilestone(streak) {
   const bonus = STREAK_MILESTONES[streak];
   if (!bonus) return;
-  S.coins += bonus; updateHeader();
+  S.coins += bonus; updateHeader(); SFX.streak();
   setTimeout(() => {
     const o = document.createElement('div'); o.className = 'easter-overlay';
     o.innerHTML = `<div class="easter-card">
@@ -805,6 +805,58 @@ function doLogout() {
 // ═══════════════════════════════════════════════════════════════
 //  APP INIT
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+//  SOUND SYSTEM
+// ═══════════════════════════════════════════════════════════════
+let _ctx = null;
+function getCtx() {
+  if (!_ctx) _ctx = new (window.AudioContext || window.webkitAudioContext)();
+  if (_ctx.state === 'suspended') _ctx.resume();
+  return _ctx;
+}
+function canSound() { return S.settings?.sound !== false; }
+
+function playTone(freq, dur, type='sine', gain=0.3, delay=0) {
+  if (!canSound()) return;
+  try {
+    const ctx = getCtx();
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.connect(g); g.connect(ctx.destination);
+    osc.type = type; osc.frequency.value = freq;
+    const t = ctx.currentTime + delay;
+    g.gain.setValueAtTime(gain, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    osc.start(t); osc.stop(t + dur);
+  } catch(e) {}
+}
+
+const SFX = {
+  click()    { playTone(600, 0.08, 'sine', 0.15); },
+  coin()     { playTone(880, 0.1, 'sine', 0.2); playTone(1100, 0.12, 'sine', 0.15, 0.08); },
+  complete() {
+    playTone(523, 0.12, 'sine', 0.25);
+    playTone(659, 0.12, 'sine', 0.25, 0.13);
+    playTone(784, 0.2,  'sine', 0.3,  0.26);
+  },
+  levelup() {
+    [523,659,784,1047].forEach((f,i) => playTone(f, 0.18, 'sine', 0.3, i*0.12));
+  },
+  error()    { playTone(220, 0.15, 'sawtooth', 0.2); },
+  reward()   {
+    [784,988,1175].forEach((f,i) => playTone(f, 0.15, 'sine', 0.25, i*0.1));
+  },
+  wheel()    {
+    for (let i=0;i<8;i++) playTone(400+i*40, 0.08, 'square', 0.1, i*0.05);
+  },
+  quest()    {
+    [659,784,988,1175].forEach((f,i) => playTone(f, 0.2, 'triangle', 0.25, i*0.15));
+  },
+  streak()   {
+    [440,554,659,880].forEach((f,i) => playTone(f, 0.15, 'sine', 0.25, i*0.1));
+  },
+};
+
 function initApp() {
   checkDailyReset();
   updateHeader();
@@ -1125,6 +1177,7 @@ function completeTask(task) {
   renderTasks();
   renderSidebar();
   spawnParticles(12);
+  SFX.complete();
   // Show reward
   document.getElementById('rewardEmoji').textContent = task.diff==='legendary'?'🏆':'🎉';
   document.getElementById('rewardTitle').textContent = task.diff==='legendary'?t('reward.legendary'):t('reward.title');
@@ -1141,7 +1194,7 @@ function completeTask(task) {
       <div style="font-size:12px;color:var(--sub)">${iDesc(dropped)}</div>`;
   } else if (drop) drop.style.display='none';
   openOverlay('rewardOverlay');
-  if (S.level>prevLvl) setTimeout(()=>{ closeOverlay('rewardOverlay'); showLevelUp(S.level); },3500);
+  if (S.level>prevLvl) { setTimeout(()=>{ closeOverlay('rewardOverlay'); showLevelUp(S.level); SFX.levelup(); },3500); }
 }
 
 function skipTask(id) {
@@ -1327,6 +1380,7 @@ function buyItem(id) {
   if((S.shopStock[id]||0)<=0){toast(t('shop.noStock'),'err');return;}
   S.coins-=it.price; addInv(id,1); S.shopStock[id]--;
   saveState(); updateHeader(); renderShop();
+  SFX.coin();
   toast(`${it.icon} ${t('toast.itemBought')}`,'ok');
   spawnParticles(6);
 }
@@ -1467,7 +1521,7 @@ function renderLeaderboard(tab) {
       el.innerHTML=tabsHtml+`<div style="font-size:12px;color:var(--sub);margin-bottom:12px">🎁 Топ-3 отримають нагороди в кінці сезону</div>`
         +data.map((e,i)=>`<div class="lb-item${e.isMe?' me':''}">
           <div class="lb-rank ${rankClass(i)}">${i+1}</div>
-          <div class="lb-av">${e.avatar||'🌿'}</div>
+          <div class="lb-av">${avatarHtml(e.avatar||'🌿')}</div>
           <div class="lb-info">
             <div class="lb-name">${e.name}${e.isMe?' <span style="color:var(--green)">(Ти)</span>':''}</div>
             <div class="lb-level">Lv.${e.level} ${PRIZES[i]||''}</div>
@@ -1485,7 +1539,7 @@ function renderLeaderboard(tab) {
       el.innerHTML=tabsHtml+`<div style="font-size:12px;color:var(--sub);margin-bottom:12px">🎁 Топ-3 отримають монети в кінці тижня</div>`
         +data.map((e,i)=>`<div class="lb-item${e.isMe?' me':''}">
           <div class="lb-rank ${rankClass(i)}">${i+1}</div>
-          <div class="lb-av">${e.avatar||'🌿'}</div>
+          <div class="lb-av">${avatarHtml(e.avatar||'🌿')}</div>
           <div class="lb-info">
             <div class="lb-name">${e.name}${e.isMe?' <span style="color:var(--green)">(Ти)</span>':''}</div>
             <div class="lb-level">Lv.${e.level} ${PRIZES[i]||''}</div>
@@ -1505,7 +1559,7 @@ function renderLeaderboard(tab) {
   el.innerHTML=tabsHtml+entries.map((e,i)=>`
     <div class="lb-item${e.isMe?' me':''}">
       <div class="lb-rank ${rankClass(i)}">${i+1}</div>
-      <div class="lb-av">${e.avatar}</div>
+      <div class="lb-av">${avatarHtml(e.avatar||'🌿')}</div>
       <div class="lb-info">
         <div class="lb-name">${e.name}${e.isMe?` <span style="color:var(--green)">${t('lb.you')}</span>`:''}</div>
         <div class="lb-level">Lv.${e.level}</div>
@@ -1878,7 +1932,7 @@ function spinWheel() {
   if(wheelSpinning) return;
   checkDailyReset();
   if((S.wheelSpinsLeft||0)<=0){toast('Кручення скінчились! Завтра ще!','warn');return;}
-  wheelSpinning=true; S.wheelSpinsLeft--;
+  wheelSpinning=true; S.wheelSpinsLeft--; SFX.wheel();
   // Вибираємо приз (рідкісні предмети рідше)
   const weights=WHEEL_PRIZES.map(p=>p.type==='item'&&ITEMS[p.value]?.rarity==='legendary'?1:p.type==='item'?3:5);
   const total=weights.reduce((a,b)=>a+b,0);
@@ -1900,7 +1954,7 @@ function spinWheel() {
     if(prize.type==='coins'){S.coins+=prize.value;msg=`🪙 +${prize.value} монет!`;}
     else if(prize.type==='xp'){addXP(prize.value);msg=`⚡ +${prize.value} XP!`;}
     else if(prize.type==='item'&&ITEMS[prize.value]){addInv(prize.value,1);msg=`${ITEMS[prize.value].icon} ${iName(ITEMS[prize.value])}!`;}
-    saveState(); updateHeader();
+    saveState(); updateHeader(); SFX.reward();
     const res=document.getElementById('wheelResult');
     if(res) res.innerHTML=`<div style="font-size:18px;font-weight:900;color:var(--gold);animation:pop .5s both">🎉 ${msg}</div>`;
     toast(`🎰 ${msg}`,'ok');
@@ -1961,7 +2015,7 @@ function renderSettings() {
     <h3>${t('settings.profile')}</h3>
     <div class="setting-row">
       <div><div class="setting-label">${S.user?.name||''}</div><div class="setting-sub">${S.user?.email||''} • ${S.user?.code||''}</div></div>
-      <div style="font-size:28px">${S.user?.avatar||'🌿'}</div>
+      <div style="width:44px;height:44px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:28px;background:var(--bg3)">${avatarHtml(S.user?.avatar||'🌿')}</div>
     </div>
     <div class="setting-row">
       <div><div class="setting-label">${t('settings.changeName')}</div></div>
@@ -2102,6 +2156,7 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') document.querySele
 // ═══════════════════════════════════════════════════════════════
 function toast(msg, type='info', icon='') {
   const icons={ok:'✅',err:'❌',info:'ℹ️',warn:'⚠️'};
+  if(type==='err'||type==='warn') SFX.error();
   const wrap=document.getElementById('toastWrap');
   const el=document.createElement('div');
   el.className=`toast ${type}`;
